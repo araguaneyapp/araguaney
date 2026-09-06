@@ -18,11 +18,11 @@ export default async function CompeticionLayout({
 
   return (
     <main className="min-h-screen px-5 pb-6">
-      <ScreenHeader
-        title={torneo.nombre}
-        backHref="/"
-        bar={<CompeticionTabs />}
-      />
+      {/*
+        Sin flecha de volver: dentro del torneo no hay "atrás" que tenga
+        sentido. Se cambia de competición desde Perfil.
+      */}
+      <ScreenHeader title={torneo.nombre} bar={<CompeticionTabs />} />
       {children}
     </main>
   );
