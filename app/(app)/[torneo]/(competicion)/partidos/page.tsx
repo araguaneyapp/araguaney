@@ -1,16 +1,11 @@
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
+import { uno } from "@/lib/embeds";
 import {
   PartidosLista,
   type Partido,
   type Pronostico,
 } from "@/components/partidos-lista";
-
-/** Los embeds de PostgREST llegan como objeto o como array de uno. */
-function uno<T>(valor: T | T[] | null): T | null {
-  if (Array.isArray(valor)) return valor[0] ?? null;
-  return valor ?? null;
-}
 
 export default async function PartidosPage({
   params,

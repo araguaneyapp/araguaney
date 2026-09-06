@@ -46,7 +46,7 @@ export function BottomNav() {
       label: "Quiniela",
       icon: PencilLine,
       href: `${base}/quiniela`,
-      disponible: false,
+      disponible: true,
       activa: empieza("quiniela"),
     },
     {

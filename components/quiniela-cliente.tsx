@@ -1,124 +1,143 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { Flag } from "@/components/flag";
+import { Plus, Minus, Lock, Check } from "lucide-react";
+import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
-import {
-  Plus,
-  Minus,
-  Lock,
-  Check,
-  ArrowUpDown,
-  ChevronRight,
-  Star,
-} from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
+import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
+import { esIdaVuelta, type ConfigTorneo } from "@/lib/config-torneo";
 
-type Equipo = { id: number; nombre: string; codigo_iso: string };
-type Prediccion = {
+type EquipoQuiniela = EquipoEscudo & { id: number };
+
+type PrediccionPropia = {
   marcador_local: number;
   marcador_visitante: number;
   usuario_id: string;
-  equipo_avanza_predicho: number | null;
 };
-type Partido = {
+
+export type PartidoQuiniela = {
   id: number;
-  grupo: string | null;
   fase: string;
-  gameday_id: number;
-  inicio_utc: string;
-  deadline: string;
+  leg: number | null;
+  gameday_id: number | null;
+  inicio_utc: string | null;
+  deadline: string | null;
   sede: string | null;
   ref_local: string | null;
   ref_visitante: string | null;
-  local: Equipo | null;
-  visitante: Equipo | null;
-  predictions: Prediccion[];
+  local: EquipoQuiniela | null;
+  visitante: EquipoQuiniela | null;
+  predictions: PrediccionPropia[];
 };
-type Gameday = { id: number; fecha: string; fase: string };
 
-const FASES = [
-  { valor: "grupos", label: "Grupos" },
-  { valor: "dieciseisavos", label: "Dieciseisavos" },
-  { valor: "octavos", label: "Octavos" },
-  { valor: "cuartos", label: "Cuartos" },
-  { valor: "semifinal", label: "Semifinales" },
-  { valor: "tercer_lugar", label: "Tercer lugar" },
-  { valor: "final", label: "Final" },
-];
+export type Jornada = {
+  id: number;
+  numero: number | null;
+  nombre: string | null;
+  fase: string;
+  fecha: string | null;
+  estado: string;
+};
 
-const ORDEN_FASES = [
-  "grupos",
-  "dieciseisavos",
-  "octavos",
-  "cuartos",
-  "semifinal",
-  "tercer_lugar",
-  "final",
-];
+type Marcador = { local: number; visitante: number; tocado: boolean };
+type MarcadorState = Record<number, Marcador>;
 
-function calcularFaseActiva(partidos: Partido[]): string {
-  const ahora = Date.now();
+/** Bloque de una jornada (o de los partidos sueltos de una fase). */
+type Bloque = {
+  clave: string;
+  titulo: string;
+  /** Estado de la jornada, solo informativo: el bloqueo lo manda el deadline. */
+  estado: string | null;
+  fecha: string | null;
+  partidos: PartidoQuiniela[];
+};
 
-  const futuros = partidos
-    .filter((p) => new Date(p.inicio_utc).getTime() >= ahora)
-    .sort(
-      (a, b) =>
-        new Date(a.inicio_utc).getTime() - new Date(b.inicio_utc).getTime()
-    );
+const ESTADOS_VISIBLES: Record<string, string> = {
+  cerrada: "Cerrada",
+  finalizada: "Finalizada",
+};
 
-  if (futuros.length > 0) {
-    return futuros[0].fase;
-  }
+const CLAVE_SIN_FECHA = "sin-fecha";
 
-  const fasesConPartidos = partidos.map((p) => p.fase);
-  for (let i = ORDEN_FASES.length - 1; i >= 0; i--) {
-    if (fasesConPartidos.includes(ORDEN_FASES[i])) {
-      return ORDEN_FASES[i];
-    }
-  }
-
-  return "grupos";
+/**
+ * Un partido sin deadline se considera abierto: lo contrario dejaría partidos
+ * imposibles de predecir si falta cargar la fecha.
+ */
+function estaBloqueado(partido: PartidoQuiniela, ahora: number) {
+  return partido.deadline != null && new Date(partido.deadline).getTime() <= ahora;
 }
 
-type MarcadorState = Record<number, { local: number; visitante: number; tocado: boolean; avanza: number | null }>;
+function claveDia(inicioUtc: string | null) {
+  if (!inicioUtc) return CLAVE_SIN_FECHA;
+  const f = new Date(inicioUtc);
+  return `${f.getFullYear()}-${f.getMonth()}-${f.getDate()}`;
+}
 
-function tituloGameday(fecha: string) {
-  const f = new Date(fecha + "T12:00:00");
-  const nombre = f.toLocaleDateString("es", { weekday: "long" });
+function tituloDia(inicioUtc: string | null) {
+  if (!inicioUtc) return "Por programar";
+  const f = new Date(inicioUtc);
+  const dia = f.toLocaleDateString("es", { weekday: "long" });
   const dd = String(f.getDate()).padStart(2, "0");
   const mm = String(f.getMonth() + 1).padStart(2, "0");
-  return `${nombre.charAt(0).toUpperCase() + nombre.slice(1)} ${dd}/${mm}`;
+  return `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dd}/${mm}`;
+}
+
+function horaLocal(inicioUtc: string | null) {
+  if (!inicioUtc) return "Por definir";
+  return new Date(inicioUtc).toLocaleTimeString("es", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function nombreEquipo(equipo: EquipoQuiniela | null, ref: string | null) {
+  return equipo?.nombre ?? ref ?? "Por definir";
+}
+
+function calcularFaseActiva(
+  partidos: PartidoQuiniela[],
+  config: ConfigTorneo,
+  ahora: number
+): string {
+  const proximo = partidos
+    .filter((p) => p.inicio_utc && new Date(p.inicio_utc).getTime() >= ahora)
+    .sort(
+      (a, b) =>
+        new Date(a.inicio_utc as string).getTime() -
+        new Date(b.inicio_utc as string).getTime()
+    )[0];
+
+  if (proximo) return proximo.fase;
+
+  // Sin partidos por delante, la última fase del torneo que tenga partidos.
+  const conPartidos = new Set(partidos.map((p) => p.fase));
+  for (let i = config.fases.length - 1; i >= 0; i--) {
+    if (conPartidos.has(config.fases[i])) return config.fases[i];
+  }
+
+  return config.fases[0] ?? "liga";
 }
 
 function FilaEquipo({
+  equipo,
   nombre,
-  iso,
   valor,
   tocado,
   bloqueado,
   onCambio,
 }: {
+  equipo: EquipoQuiniela | null;
   nombre: string;
-  iso: string | null;
   valor: number;
   tocado: boolean;
   bloqueado: boolean;
   onCambio: (delta: number) => void;
 }) {
-  const colorNumero = !tocado ? "var(--text-idle)" : "var(--text-primary)";
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {iso ? (
-          <Flag iso={iso} size={24} />
-        ) : (
-          <span
-            className="inline-block flex-shrink-0 rounded-full"
-            style={{ width: 24, height: 24, backgroundColor: "var(--border)" }}
-          />
-        )}
+        <Escudo equipo={equipo} size={24} />
         <span className="truncate text-body-md">{nombre}</span>
       </div>
 
@@ -132,12 +151,15 @@ function FilaEquipo({
             opacity: bloqueado || valor === 0 ? 0.4 : 1,
           }}
         >
-          <Minus className="h-[16px] w-[16px]" style={{ color: "var(--icons-secondary)" }} />
+          <Minus
+            className="h-[16px] w-[16px]"
+            style={{ color: "var(--icons-secondary)" }}
+          />
         </button>
 
         <span
           className="w-[28px] text-center text-display-md leading-none"
-          style={{ color: colorNumero }}
+          style={{ color: tocado ? "var(--text-primary)" : "var(--text-idle)" }}
         >
           {valor}
         </span>
@@ -146,9 +168,15 @@ function FilaEquipo({
           disabled={bloqueado}
           onClick={() => onCambio(1)}
           className="flex h-[30px] w-[30px] items-center justify-center rounded-lg"
-          style={{ backgroundColor: "var(--accent-default)", opacity: bloqueado ? 0.4 : 1 }}
+          style={{
+            backgroundColor: "var(--accent-default)",
+            opacity: bloqueado ? 0.4 : 1,
+          }}
         >
-          <Plus className="h-[16px] w-[16px]" style={{ color: "var(--text-on-accent)" }} />
+          <Plus
+            className="h-[16px] w-[16px]"
+            style={{ color: "var(--text-on-accent)" }}
+          />
         </button>
       </div>
     </div>
@@ -159,27 +187,23 @@ function TarjetaPartido({
   partido,
   marcador,
   bloqueado,
+  config,
   onCambio,
-  onAvanza,
 }: {
-  partido: Partido;
-  marcador: { local: number; visitante: number; tocado: boolean; avanza: number | null };
+  partido: PartidoQuiniela;
+  marcador: Marcador;
   bloqueado: boolean;
+  config: ConfigTorneo;
   onCambio: (lado: "local" | "visitante", delta: number) => void;
-  onAvanza: (equipoId: number) => void;
 }) {
-  const hora = new Date(partido.inicio_utc).toLocaleTimeString("es", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const nombreLocal = partido.local?.nombre ?? partido.ref_local ?? "Por definir";
-  const nombreVisitante =
-    partido.visitante?.nombre ?? partido.ref_visitante ?? "Por definir";
-
-  const esEliminatoria = partido.fase !== "grupos";
-  const esEmpate = marcador.local === marcador.visitante;
-  const mostrarAvanza =
-    esEliminatoria && marcador.tocado && esEmpate && partido.local && partido.visitante;
+  const leg = etiquetaLeg(partido.leg);
+  const meta = [
+    horaLocal(partido.inicio_utc),
+    leg && esIdaVuelta(config, partido.fase) ? leg : null,
+    partido.sede,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div
@@ -187,24 +211,28 @@ function TarjetaPartido({
       style={{ opacity: bloqueado ? 0.85 : 1 }}
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-label-md text-text-secondary">
-          {hora}
-          {partido.sede ? ` · ${partido.sede}` : ""}
-        </span>
+        <span className="truncate text-label-md text-text-secondary">{meta}</span>
         {bloqueado ? (
           <span
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-label-sm"
-            style={{ backgroundColor: "var(--surface-card)", color: "var(--text-secondary)" }}
+            className="flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-1 text-label-sm"
+            style={{
+              backgroundColor: "var(--surface-background)",
+              color: "var(--text-secondary)",
+            }}
           >
             <Lock className="h-[11px] w-[11px]" />
             Bloqueado
           </span>
         ) : (
           <span
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-label-sm"
+            className="flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-1 text-label-sm"
             style={{
-              backgroundColor: marcador.tocado ? "var(--feedback-success-surface)" : "var(--accent-subtle)",
-              color: marcador.tocado ? "var(--feedback-success)" : "var(--accent-default)",
+              backgroundColor: marcador.tocado
+                ? "var(--feedback-success-surface)"
+                : "var(--accent-subtle)",
+              color: marcador.tocado
+                ? "var(--feedback-success)"
+                : "var(--accent-default)",
             }}
           >
             <span
@@ -221,217 +249,185 @@ function TarjetaPartido({
       </div>
 
       <FilaEquipo
-        nombre={nombreLocal}
-        iso={partido.local?.codigo_iso ?? null}
+        equipo={partido.local}
+        nombre={nombreEquipo(partido.local, partido.ref_local)}
         valor={marcador.local}
         tocado={marcador.tocado}
         bloqueado={bloqueado}
         onCambio={(delta) => onCambio("local", delta)}
       />
       <FilaEquipo
-        nombre={nombreVisitante}
-        iso={partido.visitante?.codigo_iso ?? null}
+        equipo={partido.visitante}
+        nombre={nombreEquipo(partido.visitante, partido.ref_visitante)}
         valor={marcador.visitante}
         tocado={marcador.tocado}
         bloqueado={bloqueado}
         onCambio={(delta) => onCambio("visitante", delta)}
       />
-
-      {mostrarAvanza && (
-        <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--border)" }}>
-          <p className="mb-2 text-label-md-bold" style={{ color: "var(--accent-default)" }}>
-            Empate: ¿quién avanza?
-          </p>
-          <div className="flex gap-2">
-            <button
-              disabled={bloqueado}
-              onClick={() => onAvanza(partido.local!.id)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-label-md"
-              style={{
-                backgroundColor:
-                  marcador.avanza === partido.local!.id ? "var(--accent-subtle)" : "var(--background)",
-                border:
-                  marcador.avanza === partido.local!.id
-                    ? "1px solid var(--accent-default)"
-                    : "1px solid var(--border)",
-                opacity: bloqueado ? 0.5 : 1,
-              }}
-            >
-              <Flag iso={partido.local!.codigo_iso} size={16} />
-              <span className="truncate">{nombreLocal}</span>
-            </button>
-            <button
-              disabled={bloqueado}
-              onClick={() => onAvanza(partido.visitante!.id)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-label-md"
-              style={{
-                backgroundColor:
-                  marcador.avanza === partido.visitante!.id ? "var(--accent-subtle)" : "var(--background)",
-                border:
-                  marcador.avanza === partido.visitante!.id
-                    ? "1px solid var(--accent-default)"
-                    : "1px solid var(--border)",
-                opacity: bloqueado ? 0.5 : 1,
-              }}
-            >
-              <Flag iso={partido.visitante!.codigo_iso} size={16} />
-              <span className="truncate">{nombreVisitante}</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 export function QuinielaCliente({
   partidos,
-  gamedays,
+  jornadas,
   usuarioId,
-  gruposCompletos,
-  extrasCompletos,
+  torneoId,
+  config,
+  ahoraServidor,
 }: {
-  partidos: Partido[];
-  gamedays: Gameday[];
+  partidos: PartidoQuiniela[];
+  jornadas: Jornada[];
   usuarioId: string;
-  gruposCompletos: number;
-  extrasCompletos: boolean;
+  torneoId: number;
+  config: ConfigTorneo;
+  /** Hora del servidor al renderizar, para que SSR y cliente coincidan. */
+  ahoraServidor: number;
 }) {
-  const [faseActiva, setFaseActiva] = useState(() => calcularFaseActiva(partidos));
-  const [guardando, setGuardando] = useState<number | null>(null);
+  const [faseActiva, setFaseActiva] = useState(() =>
+    calcularFaseActiva(partidos, config, ahoraServidor)
+  );
+  const [guardando, setGuardando] = useState<string | null>(null);
   const [bannerVisible, setBannerVisible] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const gamedayRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const bloqueRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const barraFasesRef = useRef<HTMLDivElement | null>(null);
   const chipFaseActivaRef = useRef<HTMLButtonElement | null>(null);
 
   const [marcadores, setMarcadores] = useState<MarcadorState>(() => {
     const estado: MarcadorState = {};
     for (const p of partidos) {
-      const pred = p.predictions.find((pr) => pr.usuario_id === usuarioId);
+      const pred = p.predictions[0];
       estado[p.id] = pred
         ? {
             local: pred.marcador_local,
             visitante: pred.marcador_visitante,
             tocado: true,
-            avanza: pred.equipo_avanza_predicho ?? null,
           }
-        : { local: 0, visitante: 0, tocado: false, avanza: null };
+        : { local: 0, visitante: 0, tocado: false };
     }
     return estado;
   });
 
-  const cambiar = (partidoId: number, lado: "local" | "visitante", delta: number) => {
+  /*
+   * Arranca con la hora del servidor (así SSR e hidratación pintan lo mismo) y
+   * se refresca cada medio minuto, para que una pestaña abierta durante horas
+   * vaya bloqueando los partidos a medida que vencen sus deadlines.
+   */
+  const [ahora, setAhora] = useState(ahoraServidor);
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const cambiar = (
+    partidoId: number,
+    lado: "local" | "visitante",
+    delta: number
+  ) => {
     setMarcadores((prev) => {
       const actual = prev[partidoId];
-      const nuevoValor = Math.max(0, actual[lado] + delta);
-      const nuevo = { ...actual, [lado]: nuevoValor, tocado: true };
-      if (nuevo.local !== nuevo.visitante) {
-        nuevo.avanza = null;
-      }
-      return { ...prev, [partidoId]: nuevo };
-    });
-  };
-
-  const elegirAvanza = (partidoId: number, equipoId: number) => {
-    setMarcadores((prev) => ({
-      ...prev,
-      [partidoId]: { ...prev[partidoId], avanza: equipoId, tocado: true },
-    }));
-  };
-
-  const guardarJornada = async (idsPartidos: number[], gamedayId: number) => {
-    const ahora = new Date();
-    const idsAbiertos = new Set(
-      partidos
-        .filter((p) => new Date(p.deadline) > ahora)
-        .map((p) => p.id)
-    );
-
-    const partidosPorId = new Map(partidos.map((p) => [p.id, p]));
-
-    const candidatos = idsPartidos.filter(
-      (id) => marcadores[id]?.tocado && idsAbiertos.has(id)
-    );
-
-    for (const id of candidatos) {
-      const p = partidosPorId.get(id);
-      if (!p) continue;
-      const m = marcadores[id];
-      const esEliminatoria = p.fase !== "grupos";
-      const esEmpate = m.local === m.visitante;
-      if (esEliminatoria && esEmpate && m.avanza == null) {
-        setErrorMsg(
-          "En los partidos de eliminatorias que empatas, debes elegir quién avanza antes de guardar."
-        );
-        setTimeout(() => setErrorMsg(null), 4000);
-        return;
-      }
-    }
-
-    const aGuardar = candidatos.map((id) => {
-      const p = partidosPorId.get(id);
-      const m = marcadores[id];
-      const esEliminatoria = p?.fase !== "grupos";
-      const esEmpate = m.local === m.visitante;
       return {
-        usuario_id: usuarioId,
-        match_id: id,
-        marcador_local: m.local,
-        marcador_visitante: m.visitante,
-        equipo_avanza_predicho: esEliminatoria && esEmpate ? m.avanza : null,
+        ...prev,
+        [partidoId]: {
+          ...actual,
+          [lado]: Math.max(0, actual[lado] + delta),
+          tocado: true,
+        },
       };
     });
+  };
+
+  const guardarBloque = async (bloque: Bloque) => {
+    // Se revalida el deadline en el momento de guardar, no con el `ahora` del
+    // render: la pestaña puede llevar horas abierta.
+    const aGuardar = bloque.partidos
+      .filter((p) => marcadores[p.id]?.tocado && !estaBloqueado(p, Date.now()))
+      .map((p) => ({
+        tournament_id: torneoId,
+        usuario_id: usuarioId,
+        match_id: p.id,
+        marcador_local: marcadores[p.id].local,
+        marcador_visitante: marcadores[p.id].visitante,
+      }));
 
     if (aGuardar.length === 0) return;
 
-    setGuardando(gamedayId);
+    setGuardando(bloque.clave);
     const supabase = createClient();
     const { error } = await supabase
       .from("predictions")
       .upsert(aGuardar, { onConflict: "usuario_id,match_id" });
     setGuardando(null);
 
-    if (!error) {
-      setBannerVisible(true);
-      setTimeout(() => setBannerVisible(false), 3000);
-    } else {
+    if (error) {
       alert("Hubo un error al guardar. Intenta de nuevo.");
+      return;
     }
+
+    setBannerVisible(true);
+    setTimeout(() => setBannerVisible(false), 3000);
   };
 
+  // Bloques de la fase activa: una jornada por bloque, más uno final con los
+  // partidos de la fase que todavía no cuelgan de ninguna jornada.
   const partidosFase = partidos.filter((p) => p.fase === faseActiva);
-  const gamedaysFase = gamedays.filter((g) => g.fase === faseActiva);
-  const grupos = gamedaysFase
-    .map((gd) => ({
-      gameday: gd,
-      partidos: partidosFase.filter((p) => p.gameday_id === gd.id),
-    }))
-    .filter((g) => g.partidos.length > 0);
+  const jornadasFase = jornadas.filter((j) => j.fase === faseActiva);
+  const idsJornadaFase = new Set(jornadasFase.map((j) => j.id));
 
+  const bloques: Bloque[] = jornadasFase
+    .map((j) => ({
+      clave: `jornada-${j.id}`,
+      titulo: j.nombre ?? `Jornada ${j.numero ?? ""}`.trim(),
+      estado: j.estado,
+      fecha: j.fecha,
+      partidos: partidosFase.filter((p) => p.gameday_id === j.id),
+    }))
+    .filter((b) => b.partidos.length > 0);
+
+  const sueltos = partidosFase.filter(
+    (p) => p.gameday_id == null || !idsJornadaFase.has(p.gameday_id)
+  );
+
+  if (sueltos.length > 0) {
+    bloques.push({
+      clave: "sin-jornada",
+      titulo: etiquetaFase(faseActiva),
+      estado: null,
+      fecha: sueltos[0].inicio_utc,
+      partidos: sueltos,
+    });
+  }
+
+  // Centra el chip de la fase activa al entrar.
   useEffect(() => {
     const barra = barraFasesRef.current;
     const chip = chipFaseActivaRef.current;
     if (!barra || !chip) return;
     const offset = chip.offsetLeft - barra.clientWidth / 2 + chip.clientWidth / 2;
     barra.scrollTo({ left: Math.max(0, offset), behavior: "auto" });
-     
   }, []);
 
+  // Lleva a la jornada relevante al entrar y al cambiar de fase.
   useEffect(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     const relevante =
-      grupos.find((g) => {
-        const f = new Date(g.gameday.fecha + "T12:00:00");
+      bloques.find((b) => {
+        const referencia = b.fecha ?? b.partidos[0]?.inicio_utc ?? null;
+        if (!referencia) return false;
+        // `gamedays.fecha` es un DATE (sin hora); inicio_utc es un timestamp.
+        const f = new Date(
+          referencia.length === 10 ? `${referencia}T12:00:00` : referencia
+        );
         f.setHours(0, 0, 0, 0);
         return f >= hoy;
       }) ?? null;
 
     if (relevante) {
-      const el = gamedayRefs.current[relevante.gameday.id];
+      const el = bloqueRefs.current[relevante.clave];
       if (el) {
         el.scrollIntoView({ behavior: "auto", block: "start" });
         return;
@@ -451,143 +447,140 @@ export function QuinielaCliente({
               ref={barraFasesRef}
               className="flex h-11 items-center gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {FASES.map((fase) => {
-                const activa = fase.valor === faseActiva;
+              {config.fases.map((fase) => {
+                const activa = fase === faseActiva;
                 return (
                   <button
-                    key={fase.valor}
+                    key={fase}
                     ref={activa ? chipFaseActivaRef : null}
-                    onClick={() => setFaseActiva(fase.valor)}
+                    onClick={() => setFaseActiva(fase)}
                     className="h-9 flex-shrink-0 rounded-full px-4 text-label-md"
                     style={{
-                      backgroundColor: activa ? "var(--accent-default)" : "var(--surface-card)",
-                      color: activa ? "var(--text-on-accent)" : "var(--text-tertiary)",
+                      backgroundColor: activa
+                        ? "var(--accent-default)"
+                        : "var(--surface-card)",
+                      color: activa
+                        ? "var(--text-on-accent)"
+                        : "var(--text-tertiary)",
                     }}
                   >
-                    {fase.label}
+                    {etiquetaFase(fase)}
                   </button>
                 );
               })}
             </div>
             <div
               className="pointer-events-none absolute right-0 top-0 h-full w-10"
-              style={{ background: "linear-gradient(90deg, transparent, var(--background))" }}
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, var(--background))",
+              }}
             />
           </div>
         }
       />
 
-      {faseActiva === "grupos" && (
-        <div className="mb-4 flex flex-col gap-2">
-          <Link
-            href="/quiniela/clasificados"
-            className="caja-dorada flex items-center justify-between rounded-xl p-4"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowUpDown
-                className="h-[17px] w-[17px]"
-                style={{ color: "var(--icons-primary)" }}
-              />
-              <div>
-                <div className="text-body-sm">¿Quiénes clasifican?</div>
-                <div className="mt-px text-label-sm text-text-secondary">
-                  {gruposCompletos} de 12 grupos
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-          </Link>
-
-          <Link
-            href="/quiniela/extras"
-            className="caja-dorada flex items-center justify-between rounded-xl p-4"
-          >
-            <div className="flex items-center gap-2">
-              <Star className="h-[17px] w-[17px]" style={{ color: "var(--icons-primary)" }} />
-              <div>
-                <div className="text-body-sm">Tus extras</div>
-                <div className="mt-px text-label-sm text-text-secondary">
-                  {extrasCompletos ? "Completo" : "Por elegir"}
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-          </Link>
-        </div>
-      )}
-
-      {grupos.length === 0 ? (
+      {bloques.length === 0 ? (
         <p className="text-body-sm text-text-secondary">
           No hay partidos en esta fase todavía.
         </p>
       ) : (
-        grupos.map(({ gameday, partidos: ps }) => {
-          const idsJornada = ps.map((p) => p.id);
-          const hayTocadosNoBloqueados = ps.some(
-            (p) => marcadores[p.id]?.tocado && new Date(p.deadline) > new Date()
+        bloques.map((bloque) => {
+          const hayGuardable = bloque.partidos.some(
+            (p) => marcadores[p.id]?.tocado && !estaBloqueado(p, ahora)
           );
-          const guardandoEsta = guardando === gameday.id;
+          const guardandoEste = guardando === bloque.clave;
+          const etiquetaEstado = bloque.estado
+            ? ESTADOS_VISIBLES[bloque.estado]
+            : null;
+
+          // Subgrupos por día: una jornada de Champions abarca varios días.
+          const dias: {
+            clave: string;
+            titulo: string;
+            partidos: PartidoQuiniela[];
+          }[] = [];
+          for (const p of bloque.partidos) {
+            const clave = claveDia(p.inicio_utc);
+            const ultimo = dias[dias.length - 1];
+            if (!ultimo || ultimo.clave !== clave) {
+              dias.push({ clave, titulo: tituloDia(p.inicio_utc), partidos: [p] });
+            } else {
+              ultimo.partidos.push(p);
+            }
+          }
+
           return (
             <div
-              key={gameday.id}
+              key={bloque.clave}
               ref={(el) => {
-                gamedayRefs.current[gameday.id] = el;
+                bloqueRefs.current[bloque.clave] = el;
               }}
               className="mb-6 scroll-mt-[var(--layout-content-offset-nav)]"
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-body-sm">
-                  {tituloGameday(gameday.fecha)}
+                <span className="flex items-center gap-2 text-heading-md">
+                  {bloque.titulo}
+                  {etiquetaEstado && (
+                    <span
+                      className="rounded-full px-2 py-px text-label-sm"
+                      style={{
+                        backgroundColor: "var(--surface-background)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {etiquetaEstado}
+                    </span>
+                  )}
                 </span>
                 <span className="text-label-sm text-text-secondary">
-                  {ps.length} {ps.length === 1 ? "partido" : "partidos"}
+                  {bloque.partidos.length}{" "}
+                  {bloque.partidos.length === 1 ? "partido" : "partidos"}
                 </span>
               </div>
 
-              {ps.map((p) => {
-                const bloqueado = new Date(p.deadline) <= new Date();
-                return (
-                  <TarjetaPartido
-                    key={p.id}
-                    partido={p}
-                    marcador={marcadores[p.id]}
-                    bloqueado={bloqueado}
-                    onCambio={(lado, delta) => cambiar(p.id, lado, delta)}
-                    onAvanza={(equipoId) => elegirAvanza(p.id, equipoId)}
-                  />
-                );
-              })}
+              {dias.map((dia) => (
+                <div key={dia.clave} className="mb-3">
+                  <div className="mb-2 text-body-sm text-text-secondary">
+                    {dia.titulo}
+                  </div>
+                  {dia.partidos.map((p) => (
+                    <TarjetaPartido
+                      key={p.id}
+                      partido={p}
+                      marcador={marcadores[p.id]}
+                      bloqueado={estaBloqueado(p, ahora)}
+                      config={config}
+                      onCambio={(lado, delta) => cambiar(p.id, lado, delta)}
+                    />
+                  ))}
+                </div>
+              ))}
 
               <button
-                disabled={!hayTocadosNoBloqueados || guardandoEsta}
-                onClick={() => guardarJornada(idsJornada, gameday.id)}
+                disabled={!hayGuardable || guardandoEste}
+                onClick={() => guardarBloque(bloque)}
                 className="mt-1 w-full rounded-lg py-3 text-center text-action-button"
                 style={{
                   backgroundColor: "var(--accent-default)",
                   color: "var(--text-on-accent)",
-                  opacity: !hayTocadosNoBloqueados || guardandoEsta ? 0.4 : 1,
+                  opacity: !hayGuardable || guardandoEste ? 0.4 : 1,
                 }}
               >
-                {guardandoEsta ? "Guardando..." : "Guardar jornada"}
+                {guardandoEste ? "Guardando..." : "Guardar jornada"}
               </button>
             </div>
           );
         })
       )}
 
-      {errorMsg && (
-        <div
-          className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-36px)] max-w-[400px] -translate-x-1/2 rounded-xl px-4 py-3 text-center text-body-sm shadow-lg"
-          style={{ backgroundColor: "var(--feedback-danger-surface)", color: "var(--feedback-danger)" }}
-        >
-          {errorMsg}
-        </div>
-      )}
-
       {bannerVisible && (
         <div
           className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-body-md-bold shadow-lg"
-          style={{ backgroundColor: "var(--feedback-success)", color: "var(--text-on-accent)" }}
+          style={{
+            backgroundColor: "var(--feedback-success)",
+            color: "var(--text-on-accent)",
+          }}
         >
           <Check className="h-[18px] w-[18px]" />
           Guardado
