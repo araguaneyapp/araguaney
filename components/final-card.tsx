@@ -1,12 +1,12 @@
 import { Trophy } from "lucide-react";
-import { Flag } from "@/components/flag";
+import { Escudo, type EquipoEscudo } from "@/components/escudo";
 
 type FinalCardProps = {
   finalizado: boolean;
   nombreLocal: string;
   nombreVisitante: string;
-  localIso: string | null;
-  visitanteIso: string | null;
+  local: EquipoEscudo | null;
+  visitante: EquipoEscudo | null;
   marcador: string | null;
   hora: string;
   metaLine: string;
@@ -15,22 +15,12 @@ type FinalCardProps = {
   children?: React.ReactNode;
 };
 
-function BanderaGrande({ iso }: { iso: string | null }) {
-  if (iso) return <Flag iso={iso} size={44} />;
-  return (
-    <span
-      className="inline-block rounded-full"
-      style={{ width: 44, height: 44, backgroundColor: "var(--border)" }}
-    />
-  );
-}
-
 export function FinalCard({
   finalizado,
   nombreLocal,
   nombreVisitante,
-  localIso,
-  visitanteIso,
+  local,
+  visitante,
   marcador,
   hora,
   metaLine,
@@ -52,7 +42,7 @@ export function FinalCard({
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-1 flex-col items-center gap-2">
-          <BanderaGrande iso={localIso} />
+          <Escudo equipo={local} size={44} />
           <span className="text-center text-body-md-bold leading-tight">
             {nombreLocal}
           </span>
@@ -75,7 +65,7 @@ export function FinalCard({
         </div>
 
         <div className="flex flex-1 flex-col items-center gap-2">
-          <BanderaGrande iso={visitanteIso} />
+          <Escudo equipo={visitante} size={44} />
           <span className="text-center text-body-md-bold leading-tight">
             {nombreVisitante}
           </span>

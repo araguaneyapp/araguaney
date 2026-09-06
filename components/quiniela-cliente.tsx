@@ -416,7 +416,7 @@ export function QuinielaCliente({
     if (!barra || !chip) return;
     const offset = chip.offsetLeft - barra.clientWidth / 2 + chip.clientWidth / 2;
     barra.scrollTo({ left: Math.max(0, offset), behavior: "auto" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   useEffect(() => {

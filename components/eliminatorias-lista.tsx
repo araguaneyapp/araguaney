@@ -404,8 +404,16 @@ function FinalDesdePartido({
       finalizado={finalizado}
       nombreLocal={nombreLocal}
       nombreVisitante={nombreVisitante}
-      localIso={partido.local?.codigo_iso ?? null}
-      visitanteIso={partido.visitante?.codigo_iso ?? null}
+      local={
+        partido.local
+          ? { ...partido.local, abreviatura: null, logo_url: null }
+          : null
+      }
+      visitante={
+        partido.visitante
+          ? { ...partido.visitante, abreviatura: null, logo_url: null }
+          : null
+      }
       marcador={marcador}
       hora={horaLocal(partido.inicio_utc)}
       metaLine={metaLine}
@@ -450,7 +458,7 @@ export function EliminatoriasLista({
     if (!barra || !chip) return;
     const offset = chip.offsetLeft - barra.clientWidth / 2 + chip.clientWidth / 2;
     barra.scrollTo({ left: Math.max(0, offset), behavior: "auto" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const partidosFase = partidos.filter((p) => p.fase === faseActiva);
