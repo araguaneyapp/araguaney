@@ -1,0 +1,152 @@
+/* ================================================================
+   Araguaney Design System — Design Tokens
+   Generado desde Figma (AQM26-Mockups). Fuente única de verdad.
+   Arquitectura de dos capas: primitives -> semantic.
+   ================================================================ */
+
+:root {
+  /* ---------- PRIMITIVES (capa base, no usar directo en UI) ---------- */
+  --p-gold-box-gb-border: #3a3216;
+  --p-gold-box-gb-gradient-end: #1a1a1a;
+  --p-gold-box-gb-gradient-start: #1f1b0e;
+  --p-green-green: #00b862;
+  --p-green-green-dark: #0e2a1a;
+  --p-metal-bronze: #cd7f32;
+  --p-metal-silver: #c0c0c0;
+  --p-neutral-grey-300: #b5b5b5;
+  --p-neutral-grey-500: #8a8a8a;
+  --p-neutral-grey-600: #5f5e5a;
+  --p-neutral-grey-700: #4a4a4a;
+  --p-neutral-grey-800: #3a3a3a;
+  --p-neutral-onyx: #161616;
+  --p-neutral-smoke: #f5f5f5;
+  --p-neutral-surface-border: #2a2a2a;
+  --p-neutral-surface-card: #1f1f1f;
+  --p-neutral-surface-input: #2e2e2e;
+  --p-red-red: #e2574c;
+  --p-red-red-dark: #2e1411;
+  --p-yellow-araguaney: #f5c518;
+  --p-yellow-araguaney-dark: #7a6307;
+  --p-yellow-yellow-dark: #2a2509;
+
+  /* ---------- SEMANTIC (usar estos en la UI) ---------- */
+  --accent-dark: var(--p-yellow-araguaney-dark);
+  --accent-default: var(--p-yellow-araguaney);
+  --accent-subtle: var(--p-yellow-yellow-dark);
+  --border-default: var(--p-neutral-surface-border);
+  --border-strong: var(--p-neutral-grey-800);
+  --effect-gold-box-border: var(--p-gold-box-gb-border);
+  --effect-gold-box-end: var(--p-gold-box-gb-gradient-end);
+  --effect-gold-box-start: var(--p-gold-box-gb-gradient-start);
+  --feedback-danger: var(--p-red-red);
+  --feedback-danger-surface: var(--p-red-red-dark);
+  --feedback-success: var(--p-green-green);
+  --feedback-success-surface: var(--p-green-green-dark);
+  --feedback-warning: var(--p-yellow-araguaney);
+  --feedback-warning-surface: var(--p-yellow-yellow-dark);
+  --icons-error: var(--p-red-red);
+  --icons-on-accent: var(--text-on-accent);
+  --icons-primary: var(--p-yellow-araguaney);
+  --icons-secondary: var(--p-neutral-grey-500);
+  --icons-success: var(--p-green-green);
+  --icons-tertiary: var(--p-neutral-smoke);
+  --overlay-scrim: #000000;
+  --podium-bronze: var(--p-metal-bronze);
+  --podium-gold: var(--p-yellow-araguaney);
+  --podium-silver: var(--p-metal-silver);
+  --surface-background: var(--p-neutral-onyx);
+  --surface-card: var(--p-neutral-surface-card);
+  --surface-input: var(--p-neutral-surface-input);
+  --text-idle: var(--p-neutral-grey-700);
+  --text-on-accent: var(--p-neutral-onyx);
+  --text-primary: var(--p-neutral-smoke);
+  --text-secondary: var(--p-neutral-grey-500);
+  --text-tertiary: var(--p-neutral-grey-300);
+
+  /* ---------- SPACING ---------- */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-px: 2px;
+
+  /* ---------- RADIUS ---------- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ---------- ICON SIZE / STROKE ---------- */
+  --icon-size-xs: 8px;
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --icon-size-xl: 32px;
+  --icon-stroke-thin: 1px;
+  --icon-stroke-default: 2px;
+  --icon-stroke-bold: 2.5px;
+
+  /* ---------- LAYOUT ---------- */
+  --layout-bottom-nav: 80px;
+  --layout-content-offset-nav: 152px;
+  --layout-content-offset-simple: 92px;
+  --layout-header-nav: 140px;
+  --layout-header-simple: 80px;
+
+  /* ---------- OPACITY ---------- */
+  --opacity-0: 0%;
+  --opacity-20: 20%;
+  --opacity-40: 40%;
+  --opacity-60: 60%;
+  --opacity-80: 80%;
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-family: 'Outfit', system-ui, sans-serif;
+  --text-display-xl-size: 34px;
+  --text-display-xl-weight: 800;
+  --text-display-lg-size: 26px;
+  --text-display-lg-weight: 800;
+  --text-display-lg-code-size: 26px;
+  --text-display-lg-code-weight: 800;
+  --text-display-lg-code-tracking: 0.4em;
+  --text-display-md-size: 22px;
+  --text-display-md-weight: 800;
+  --text-display-sm-size: 18px;
+  --text-display-sm-weight: 700;
+  --text-heading-xl-size: 22px;
+  --text-heading-xl-weight: 700;
+  --text-heading-lg-size: 20px;
+  --text-heading-lg-weight: 700;
+  --text-heading-md-size: 16px;
+  --text-heading-md-weight: 700;
+  --text-heading-sm-size: 14px;
+  --text-heading-sm-weight: 600;
+  --text-body-md-size: 14px;
+  --text-body-md-weight: 500;
+  --text-body-md-bold-size: 14px;
+  --text-body-md-bold-weight: 700;
+  --text-body-sm-size: 13px;
+  --text-body-sm-weight: 500;
+  --text-label-md-size: 11px;
+  --text-label-md-weight: 500;
+  --text-label-md-bold-size: 11px;
+  --text-label-md-bold-weight: 700;
+  --text-label-md-caps-size: 11px;
+  --text-label-md-caps-weight: 600;
+  --text-label-md-caps-tracking: 1.5px;
+  --text-label-sm-size: 10px;
+  --text-label-sm-weight: 500;
+  --text-label-xs-size: 9px;
+  --text-label-xs-weight: 600;
+  --text-action-button-size: 14px;
+  --text-action-button-weight: 600;
+}

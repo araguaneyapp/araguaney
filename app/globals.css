@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../styles/ds/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* ===== Tipografía ===== */
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-outfit);
+
+  /* ===== Colores base (shadcn) ===== */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* ===== DS: Superficies ===== */
+  --color-surface-background: var(--surface-background);
+  --color-surface-card: var(--surface-card);
+  --color-surface-input: var(--surface-input);
+
+  /* ===== DS: Acento ===== */
+  --color-accent-default: var(--accent-default);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-subtle: var(--accent-subtle);
+
+  /* ===== DS: Texto ===== */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-idle: var(--text-idle);
+  --color-text-on-accent: var(--text-on-accent);
+
+  /* ===== DS: Bordes ===== */
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* ===== DS: Feedback ===== */
+  --color-feedback-success: var(--feedback-success);
+  --color-feedback-success-surface: var(--feedback-success-surface);
+  --color-feedback-warning: var(--feedback-warning);
+  --color-feedback-warning-surface: var(--feedback-warning-surface);
+  --color-feedback-danger: var(--feedback-danger);
+  --color-feedback-danger-surface: var(--feedback-danger-surface);
+
+  /* ===== DS: Iconos ===== */
+  --color-icons-primary: var(--icons-primary);
+  --color-icons-secondary: var(--icons-secondary);
+  --color-icons-tertiary: var(--icons-tertiary);
+  --color-icons-success: var(--icons-success);
+  --color-icons-error: var(--icons-error);
+  --color-icons-on-accent: var(--icons-on-accent);
+
+  /* ===== DS: Podio ===== */
+  --color-podium-gold: var(--podium-gold);
+  --color-podium-silver: var(--podium-silver);
+  --color-podium-bronze: var(--podium-bronze);
+
+  /* ===== DS: Efecto gold box ===== */
+  --color-effect-gold-box-start: var(--effect-gold-box-start);
+  --color-effect-gold-box-end: var(--effect-gold-box-end);
+  --color-effect-gold-box-border: var(--effect-gold-box-border);
+
+  /* ===== DS: Overlay ===== */
+  --color-overlay-scrim: var(--overlay-scrim);
+
+  /* ===== shadcn (mapeo a paleta DS) ===== */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* ===== Radius (valores fijos del DS) ===== */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-full: var(--radius-full);
+}
+
+/* ===== Mapeo de shadcn a la paleta del DS (siempre modo oscuro) ===== */
+:root {
+  --background: var(--surface-background);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-default);
+  --primary-foreground: var(--text-on-accent);
+  --secondary: var(--surface-card);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-card);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--accent-subtle);
+  --accent-foreground: var(--accent-default);
+  --destructive: var(--feedback-danger);
+  --border: var(--border-default);
+  --input: var(--surface-input);
+  --ring: var(--accent-default);
+  --chart-1: var(--accent-default);
+  --chart-2: var(--feedback-success);
+  --chart-3: var(--podium-silver);
+  --chart-4: var(--podium-bronze);
+  --chart-5: var(--text-secondary);
+  --radius: 0.625rem;
+  --sidebar: var(--surface-card);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent-default);
+  --sidebar-primary-foreground: var(--text-on-accent);
+  --sidebar-accent: var(--accent-subtle);
+  --sidebar-accent-foreground: var(--accent-default);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--accent-default);
+}
+
+@utility text-display-xl {
+  font-size: 34px;
+  font-weight: 800;
+}
+@utility text-display-lg {
+  font-size: 26px;
+  font-weight: 800;
+}
+@utility text-display-lg-code {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.4em;
+}
+@utility text-display-md {
+  font-size: 22px;
+  font-weight: 800;
+}
+@utility text-display-sm {
+  font-size: 18px;
+  font-weight: 700;
+}
+@utility text-heading-xl {
+  font-size: 22px;
+  font-weight: 700;
+}
+@utility text-heading-lg {
+  font-size: 20px;
+  font-weight: 700;
+}
+@utility text-heading-md {
+  font-size: 16px;
+  font-weight: 700;
+}
+@utility text-heading-sm {
+  font-size: 14px;
+  font-weight: 600;
+}
+@utility text-body-md {
+  font-size: 14px;
+  font-weight: 500;
+}
+@utility text-body-md-bold {
+  font-size: 14px;
+  font-weight: 700;
+}
+@utility text-body-sm {
+  font-size: 13px;
+  font-weight: 500;
+}
+@utility text-label-md {
+  font-size: 11px;
+  font-weight: 500;
+}
+@utility text-label-md-bold {
+  font-size: 11px;
+  font-weight: 700;
+}
+@utility text-label-md-caps {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+}
+@utility text-label-sm {
+  font-size: 10px;
+  font-weight: 500;
+}
+@utility text-label-xs {
+  font-size: 9px;
+  font-weight: 600;
+}
+@utility text-action-button {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer components {
+  .caja-dorada {
+    background: linear-gradient(135deg, var(--effect-gold-box-start), var(--effect-gold-box-end));
+    border: 1px solid var(--effect-gold-box-border);
+  }
+}
