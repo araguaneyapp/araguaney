@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import { esIdaVuelta, type ConfigTorneo } from "@/lib/config-torneo";
+import { ahoraMs } from "@/lib/tiempo";
 
 type EquipoQuiniela = EquipoEscudo & { id: number };
 
@@ -288,7 +289,15 @@ export function QuinielaCliente({
     calcularFaseActiva(partidos, config, ahoraServidor)
   );
   const [guardando, setGuardando] = useState<string | null>(null);
-  const [bannerVisible, setBannerVisible] = useState(false);
+  const [aviso, setAviso] = useState<{
+    tipo: "ok" | "error";
+    texto: string;
+  } | null>(null);
+
+  const mostrarAviso = (tipo: "ok" | "error", texto: string) => {
+    setAviso({ tipo, texto });
+    setTimeout(() => setAviso(null), 4000);
+  };
 
   const bloqueRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const barraFasesRef = useRef<HTMLDivElement | null>(null);
@@ -317,7 +326,7 @@ export function QuinielaCliente({
   const [ahora, setAhora] = useState(ahoraServidor);
 
   useEffect(() => {
-    const id = setInterval(() => setAhora(Date.now()), 30_000);
+    const id = setInterval(() => setAhora(ahoraMs()), 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -339,11 +348,11 @@ export function QuinielaCliente({
     });
   };
 
-  const guardarBloque = async (bloque: Bloque) => {
-    // Se revalida el deadline en el momento de guardar, no con el `ahora` del
-    // render: la pestaña puede llevar horas abierta.
-    const aGuardar = bloque.partidos
-      .filter((p) => marcadores[p.id]?.tocado && !estaBloqueado(p, Date.now()))
+  const guardarDia = async (clave: string, delDia: PartidoQuiniela[]) => {
+    // Se revalida el deadline al guardar, no con el `ahora` del render: la
+    // pestaña puede llevar horas abierta.
+    const aGuardar = delDia
+      .filter((p) => marcadores[p.id]?.tocado && !estaBloqueado(p, ahoraMs()))
       .map((p) => ({
         tournament_id: torneoId,
         usuario_id: usuarioId,
@@ -354,20 +363,53 @@ export function QuinielaCliente({
 
     if (aGuardar.length === 0) return;
 
-    setGuardando(bloque.clave);
+    setGuardando(clave);
     const supabase = createClient();
+
     const { error } = await supabase
       .from("predictions")
       .upsert(aGuardar, { onConflict: "usuario_id,match_id" });
+
+    let rechazados = 0;
+
+    /*
+     * La base rechaza predicciones de partidos con el deadline vencido, y un
+     * upsert por lotes es todo o nada: si cae una fila, no se guarda ninguna.
+     * Ante un fallo se reintenta fila por fila para que lo válido sí persista
+     * y solo quede fuera lo que la base rechaza de verdad.
+     */
+    if (error) {
+      const resultados = await Promise.all(
+        aGuardar.map((fila) =>
+          supabase
+            .from("predictions")
+            .upsert(fila, { onConflict: "usuario_id,match_id" })
+        )
+      );
+      rechazados = resultados.filter((r) => r.error).length;
+      // Si la base cerró partidos que el cliente creía abiertos, su reloj va
+      // atrasado: se resincroniza para que la pantalla los bloquee.
+      setAhora(ahoraMs());
+    }
+
     setGuardando(null);
 
-    if (error) {
-      alert("Hubo un error al guardar. Intenta de nuevo.");
+    const guardados = aGuardar.length - rechazados;
+
+    if (guardados === 0) {
+      mostrarAviso(
+        "error",
+        "No se pudo guardar: esos partidos ya están cerrados."
+      );
       return;
     }
 
-    setBannerVisible(true);
-    setTimeout(() => setBannerVisible(false), 3000);
+    mostrarAviso(
+      rechazados > 0 ? "error" : "ok",
+      rechazados > 0
+        ? `Guardados ${guardados}. ${rechazados} ya estaban cerrados.`
+        : "Guardado"
+    );
   };
 
   // Bloques de la fase activa: una jornada por bloque, más uno final con los
@@ -486,10 +528,6 @@ export function QuinielaCliente({
         </p>
       ) : (
         bloques.map((bloque) => {
-          const hayGuardable = bloque.partidos.some(
-            (p) => marcadores[p.id]?.tocado && !estaBloqueado(p, ahora)
-          );
-          const guardandoEste = guardando === bloque.clave;
           const etiquetaEstado = bloque.estado
             ? ESTADOS_VISIBLES[bloque.estado]
             : null;
@@ -539,51 +577,78 @@ export function QuinielaCliente({
                 </span>
               </div>
 
-              {dias.map((dia) => (
-                <div key={dia.clave} className="mb-3">
-                  <div className="mb-2 text-body-sm text-text-secondary">
-                    {dia.titulo}
-                  </div>
-                  {dia.partidos.map((p) => (
-                    <TarjetaPartido
-                      key={p.id}
-                      partido={p}
-                      marcador={marcadores[p.id]}
-                      bloqueado={estaBloqueado(p, ahora)}
-                      config={config}
-                      onCambio={(lado, delta) => cambiar(p.id, lado, delta)}
-                    />
-                  ))}
-                </div>
-              ))}
+              {dias.map((dia) => {
+                /*
+                 * El botón es por día, no por jornada: los partidos de cada
+                 * día cierran en momentos distintos, y un único botón mezclaba
+                 * partidos ya cerrados con otros todavía abiertos.
+                 */
+                const claveDiaCompleta = `${bloque.clave}/${dia.clave}`;
+                const hayAbiertos = dia.partidos.some(
+                  (p) => !estaBloqueado(p, ahora)
+                );
+                const hayGuardable = dia.partidos.some(
+                  (p) => marcadores[p.id]?.tocado && !estaBloqueado(p, ahora)
+                );
+                const guardandoEste = guardando === claveDiaCompleta;
 
-              <button
-                disabled={!hayGuardable || guardandoEste}
-                onClick={() => guardarBloque(bloque)}
-                className="mt-1 w-full rounded-lg py-3 text-center text-action-button"
-                style={{
-                  backgroundColor: "var(--accent-default)",
-                  color: "var(--text-on-accent)",
-                  opacity: !hayGuardable || guardandoEste ? 0.4 : 1,
-                }}
-              >
-                {guardandoEste ? "Guardando..." : "Guardar jornada"}
-              </button>
+                return (
+                  <div key={dia.clave} className="mb-4">
+                    <div className="mb-2 text-body-sm text-text-secondary">
+                      {dia.titulo}
+                    </div>
+                    {dia.partidos.map((p) => (
+                      <TarjetaPartido
+                        key={p.id}
+                        partido={p}
+                        marcador={marcadores[p.id]}
+                        bloqueado={estaBloqueado(p, ahora)}
+                        config={config}
+                        onCambio={(lado, delta) => cambiar(p.id, lado, delta)}
+                      />
+                    ))}
+
+                    {hayAbiertos && (
+                      <button
+                        disabled={!hayGuardable || guardandoEste}
+                        onClick={() =>
+                          guardarDia(claveDiaCompleta, dia.partidos)
+                        }
+                        className="mt-1 w-full rounded-lg py-3 text-center text-action-button"
+                        style={{
+                          backgroundColor: "var(--accent-default)",
+                          color: "var(--text-on-accent)",
+                          opacity: !hayGuardable || guardandoEste ? 0.4 : 1,
+                        }}
+                      >
+                        {guardandoEste ? "Guardando..." : "Guardar"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         })
       )}
 
-      {bannerVisible && (
+      {aviso && (
         <div
-          className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-body-md-bold shadow-lg"
-          style={{
-            backgroundColor: "var(--feedback-success)",
-            color: "var(--text-on-accent)",
-          }}
+          className="fixed bottom-24 left-1/2 z-50 flex max-w-[calc(100%-36px)] -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-center text-body-md-bold shadow-lg"
+          style={
+            aviso.tipo === "ok"
+              ? {
+                  backgroundColor: "var(--feedback-success)",
+                  color: "var(--text-on-accent)",
+                }
+              : {
+                  backgroundColor: "var(--feedback-danger-surface)",
+                  color: "var(--feedback-danger)",
+                }
+          }
         >
-          <Check className="h-[18px] w-[18px]" />
-          Guardado
+          {aviso.tipo === "ok" && <Check className="h-[18px] w-[18px]" />}
+          {aviso.texto}
         </div>
       )}
     </main>
