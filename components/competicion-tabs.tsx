@@ -12,7 +12,7 @@ import { usePathname, useParams } from "next/navigation";
  */
 const TABS = [
   { sufijo: "partidos", label: "Partidos", disponible: true },
-  { sufijo: "eliminatorias", label: "Eliminatorias", disponible: false },
+  { sufijo: "eliminatorias", label: "Eliminatorias", disponible: true },
   { sufijo: "tabla", label: "Tabla", disponible: true },
 ];
 

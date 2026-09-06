@@ -1,29 +1,27 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Flag } from "@/components/flag";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { type EquipoEscudo } from "@/components/escudo";
 import { FinalCard } from "@/components/final-card";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import { TarjetaPartido, type MarcadorPartido } from "@/components/tarjeta-partido";
+import {
+  BotonDetalle,
+  DetallePronosticos,
+  type Pronostico,
+} from "@/components/pronosticos-detalle";
+import { etiquetaFase } from "@/lib/fases";
+import { formatoDeFase, type ConfigTorneo } from "@/lib/config-torneo";
 
-type Equipo = { nombre: string; codigo_iso: string };
+export type EquipoLlave = EquipoEscudo & { id: number };
 
-type Pronostico = {
-  usuario_id: string;
-  nombre: string;
-  marcador_local: number;
-  marcador_visitante: number;
-  points_earned: number;
-  llanero_solitario: boolean;
-  equipo_avanza_predicho: number | null;
-};
-
-type Partido = {
+export type PartidoLlave = {
   id: number;
+  tie_id: number | null;
   fase: string;
-  inicio_utc: string;
+  leg: number | null;
+  inicio_utc: string | null;
+  status: string;
   sede: string | null;
-  ref_local: string | null;
-  ref_visitante: string | null;
   marcador_local: number | null;
   marcador_visitante: number | null;
   penales_local: number | null;
@@ -31,65 +29,105 @@ type Partido = {
   prorroga_local: number | null;
   prorroga_visitante: number | null;
   resuelto_en: string | null;
-  equipo_avanza_id: number | null;
-  status: string;
-  local: Equipo | null;
-  visitante: Equipo | null;
+  equipo_local_id: number | null;
+  equipo_visitante_id: number | null;
+  ref_local: string | null;
+  ref_visitante: string | null;
+  local: EquipoLlave | null;
+  visitante: EquipoLlave | null;
 };
 
-const FASES = [
-  { valor: "dieciseisavos", label: "Dieciseisavos" },
-  { valor: "octavos", label: "Octavos" },
-  { valor: "cuartos", label: "Cuartos" },
-  { valor: "semifinal", label: "Semifinales" },
-  { valor: "tercer_lugar", label: "Tercer lugar" },
-  { valor: "final", label: "Final" },
-];
+export type Llave = {
+  id: number;
+  fase: string;
+  agregado_a: number | null;
+  agregado_b: number | null;
+  equipo_avanza_id: number | null;
+  /** "agregado" | "prorroga" | "penales" */
+  resuelto_en: string | null;
+  ref_a: string | null;
+  ref_b: string | null;
+  equipo_a: EquipoLlave | null;
+  equipo_b: EquipoLlave | null;
+};
 
-const ORDEN_FASES = [
-  "dieciseisavos",
-  "octavos",
-  "cuartos",
-  "semifinal",
-  "tercer_lugar",
-  "final",
-];
+/** Quién dijo cada jugador que pasaría la llave. */
+export type AvancePronosticado = {
+  usuario_id: string;
+  nombre: string;
+  equipo_avanza_id: number | null;
+  /** Resuelto en el servidor: aquí solo se pinta. */
+  equipo_avanza_nombre: string | null;
+  points_earned: number;
+};
 
-function limpiarRef(ref: string | null) {
-  if (!ref) return "Por definir";
-  return ref.replace("Grupo ", "");
+/**
+ * La llave con sus legs. Ya no es una unidad visual —cada partido es su
+ * propia card— pero sigue siendo la unidad de cálculo: el agregado y quién
+ * avanza solo existen a nivel de llave.
+ */
+export type Cruce = {
+  clave: string;
+  fase: string;
+  llave: Llave | null;
+  partidos: PartidoLlave[];
+};
+
+function estaJugado(p: PartidoLlave) {
+  return p.status === "finished" || p.status === "published";
 }
 
-function claveDia(inicioUtc: string) {
+function claveDia(inicioUtc: string | null) {
+  if (!inicioUtc) return "sin-fecha";
   const f = new Date(inicioUtc);
   return `${f.getFullYear()}-${f.getMonth()}-${f.getDate()}`;
 }
 
-function tituloDia(inicioUtc: string) {
+function tituloDia(inicioUtc: string | null) {
+  if (!inicioUtc) return "Por programar";
   const f = new Date(inicioUtc);
-  const nombre = f.toLocaleDateString("es", { weekday: "long" });
+  const dia = f.toLocaleDateString("es", { weekday: "long" });
   const dd = String(f.getDate()).padStart(2, "0");
   const mm = String(f.getMonth() + 1).padStart(2, "0");
-  return `${nombre.charAt(0).toUpperCase() + nombre.slice(1)} ${dd}/${mm}`;
+  return `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dd}/${mm}`;
 }
 
-function horaLocal(inicioUtc: string) {
+function horaLocal(inicioUtc: string | null) {
+  if (!inicioUtc) return "Por definir";
   return new Date(inicioUtc).toLocaleTimeString("es", {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
+function nombreLado(equipo: EquipoLlave | null, ref: string | null) {
+  return equipo?.nombre ?? ref ?? "Por definir";
+}
+
+function marcadorDe(p: PartidoLlave): MarcadorPartido | null {
+  if (!estaJugado(p)) return null;
+  if (p.marcador_local == null || p.marcador_visitante == null) return null;
+  return { local: p.marcador_local, visitante: p.marcador_visitante };
+}
+
 function detalleInstancia(
-  p: Partido
+  p: PartidoLlave
 ): { marcador: string; etiqueta: string } | null {
-  if (p.resuelto_en === "prorroga" && p.prorroga_local != null && p.prorroga_visitante != null) {
+  if (
+    p.resuelto_en === "prorroga" &&
+    p.prorroga_local != null &&
+    p.prorroga_visitante != null
+  ) {
     return {
       marcador: `${p.prorroga_local} - ${p.prorroga_visitante}`,
       etiqueta: "Prórroga",
     };
   }
-  if (p.resuelto_en === "penales" && p.penales_local != null && p.penales_visitante != null) {
+  if (
+    p.resuelto_en === "penales" &&
+    p.penales_local != null &&
+    p.penales_visitante != null
+  ) {
     return {
       marcador: `${p.penales_local} - ${p.penales_visitante}`,
       etiqueta: "Penales",
@@ -98,338 +136,274 @@ function detalleInstancia(
   return null;
 }
 
-function estaJugado(p: Partido) {
-  return p.status === "finished" || p.status === "published";
-}
+/**
+ * Agregado de la llave orientado A-B.
+ *
+ * Con la llave cerrada manda el dato de la BD. Mientras falte algún leg se
+ * suma lo ya jugado, que es el "global parcial" que ve la vuelta antes de
+ * disputarse. Si no hay ni un leg jugado devuelve null: un `0-0` sería
+ * inventado.
+ */
+function agregado(cruce: Cruce): { a: number; b: number } | null {
+  const { llave, partidos } = cruce;
+  if (!llave) return null;
 
-function calcularFaseActiva(partidos: Partido[]): string {
-  const pendientes = partidos
-    .filter((p) => !estaJugado(p))
-    .sort(
-      (a, b) =>
-        new Date(a.inicio_utc).getTime() - new Date(b.inicio_utc).getTime()
-    );
+  const idA = llave.equipo_a?.id;
+  const idB = llave.equipo_b?.id;
+  if (idA == null || idB == null) return null;
 
-  if (pendientes.length > 0) {
-    return pendientes[0].fase;
+  const jugados = partidos.filter(estaJugado);
+  if (jugados.length === 0) return null;
+
+  const completo = jugados.length === partidos.length;
+  if (completo && llave.agregado_a != null && llave.agregado_b != null) {
+    return { a: llave.agregado_a, b: llave.agregado_b };
   }
 
-  const fasesConPartidos = partidos.map((p) => p.fase);
-  for (let i = ORDEN_FASES.length - 1; i >= 0; i--) {
-    if (fasesConPartidos.includes(ORDEN_FASES[i])) {
-      return ORDEN_FASES[i];
+  let a = 0;
+  let b = 0;
+  for (const p of jugados) {
+    if (p.marcador_local == null || p.marcador_visitante == null) return null;
+    if (p.equipo_local_id === idA && p.equipo_visitante_id === idB) {
+      a += p.marcador_local;
+      b += p.marcador_visitante;
+    } else if (p.equipo_local_id === idB && p.equipo_visitante_id === idA) {
+      b += p.marcador_local;
+      a += p.marcador_visitante;
+    } else {
+      return null;
     }
   }
-
-  return "dieciseisavos";
+  return { a, b };
 }
 
-function inicial(nombre: string) {
-  return nombre.trim().charAt(0).toUpperCase();
+/**
+ * Voltea el agregado A-B para que se lea en el mismo orden en que aparecen
+ * los equipos en ESTA card. La vuelta invierte la localía, así que sin esto
+ * la pill contradiría al marcador que tiene justo debajo.
+ */
+function orientar(
+  global: { a: number; b: number },
+  partido: PartidoLlave,
+  llave: Llave
+): MarcadorPartido | null {
+  const idA = llave.equipo_a?.id;
+  const idB = llave.equipo_b?.id;
+  if (partido.equipo_local_id === idA) {
+    return { local: global.a, visitante: global.b };
+  }
+  if (partido.equipo_local_id === idB) {
+    return { local: global.b, visitante: global.a };
+  }
+  return null;
 }
 
-function motivoPuntaje(pron: Pronostico, partido: Partido): string {
-  const ml = partido.marcador_local as number;
-  const mv = partido.marcador_visitante as number;
-  const exacto = pron.marcador_local === ml && pron.marcador_visitante === mv;
-  const realEmpate = ml === mv;
-  const predEmpate = pron.marcador_local === pron.marcador_visitante;
-  const aciertaGanador =
-    (ml > mv && pron.marcador_local > pron.marcador_visitante) ||
-    (ml < mv && pron.marcador_local < pron.marcador_visitante);
+/**
+ * Contexto de la llave sobre el marcador:
+ *
+ *   ida jugada  -> "Partido Ida"
+ *   vuelta      -> "Global X-Y", parcial mientras no se juegue
+ *
+ * La ida sin jugar no lleva pill: todavía es un partido sin historia. Y la
+ * vuelta tampoco, si la ida no se ha jugado y no hay nada que agregar.
+ */
+function pillDe(
+  partido: PartidoLlave,
+  cruce: Cruce,
+  config: ConfigTorneo
+): string | null {
+  const { llave } = cruce;
+  if (!llave) return null;
+  if (formatoDeFase(config, partido.fase) !== "ida_vuelta") return null;
 
-  const aciertaAvanza =
-    partido.equipo_avanza_id != null &&
-    pron.equipo_avanza_predicho != null &&
-    pron.equipo_avanza_predicho === partido.equipo_avanza_id;
+  if (partido.leg === 1) return estaJugado(partido) ? "Partido Ida" : null;
+  if (partido.leg !== 2) return null;
 
-  let base: string;
-  if (exacto && !realEmpate) base = pron.llanero_solitario ? "Exacto + llanero" : "Marcador exacto";
-  else if (exacto && realEmpate) base = pron.llanero_solitario ? "Empate exacto + llanero" : "Empate exacto";
-  else if (!realEmpate && aciertaGanador) base = "Acertó ganador";
-  else if (realEmpate && predEmpate) base = "Acertó empate";
-  else base = "No acertó";
+  const global = agregado(cruce);
+  if (!global) return null;
 
-  if (aciertaAvanza) base += " + avanza";
-  return base;
+  const orientado = orientar(global, partido, llave);
+  if (!orientado) return null;
+
+  return `Global ${orientado.local}-${orientado.visitante}`;
 }
 
-function FilaPronostico({
-  pron,
-  esUsuario,
-  partido,
-}: {
-  pron: Pronostico;
-  esUsuario: boolean;
-  partido: Partido;
-}) {
-  const colorPuntos =
-    pron.points_earned > 0 ? "var(--feedback-success)" : "var(--text-idle)";
-
-  return (
-    <div
-      className="mb-2 flex items-center gap-2 rounded-lg p-2"
-      style={{
-        backgroundColor: esUsuario ? "var(--accent-subtle)" : "var(--surface-background)",
-        border: esUsuario ? "1px solid var(--accent-default)" : "none",
-      }}
-    >
-      <span
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full text-heading-sm"
-        style={{
-          border: esUsuario ? "2px solid var(--accent-default)" : "none",
-          backgroundColor: esUsuario ? "transparent" : "var(--border)",
-          color: esUsuario ? "var(--accent-default)" : "var(--text-tertiary)",
-        }}
-      >
-        {inicial(pron.nombre)}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-body-sm">{pron.nombre}</span>
-          {esUsuario && (
-            <span
-              className="flex-shrink-0 rounded-md px-1 py-px text-label-xs"
-              style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
-            >
-              Tú
-            </span>
-          )}
-          {pron.llanero_solitario && (
-            <span
-              className="flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-px text-label-xs"
-              style={{ backgroundColor: "var(--surface-background)", color: "var(--accent-default)" }}
-            >
-              <Star className="h-[9px] w-[9px]" />
-              Llanero
-            </span>
-          )}
-        </div>
-        <div className="mt-px text-label-md text-text-secondary">
-          Pronosticó {pron.marcador_local}-{pron.marcador_visitante}
-        </div>
-      </div>
-
-      <div className="flex-shrink-0 text-right">
-        <div className="text-heading-md" style={{ color: colorPuntos }}>
-          {pron.points_earned > 0 ? `+${pron.points_earned}` : pron.points_earned}
-        </div>
-        <div className="text-label-xs text-text-secondary">
-          {motivoPuntaje(pron, partido)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetallePronosticos({
-  partido,
-  pronosticos,
+/** Bloque de "quién avanza", solo si la Quiniela llegó a capturarlo. */
+function BloqueAvances({
+  avances,
   usuarioId,
 }: {
-  partido: Partido;
-  pronosticos: Pronostico[];
+  avances: AvancePronosticado[];
   usuarioId: string;
 }) {
-  const ordenados = [...pronosticos].sort(
-    (a, b) => b.points_earned - a.points_earned
-  );
+  if (avances.length === 0) return null;
 
   return (
     <div className="mt-3">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-label-md-bold" style={{ color: "var(--accent-default)" }}>
-          Pronósticos
-        </span>
-        <span className="text-label-sm text-text-secondary">
-          {ordenados.length} {ordenados.length === 1 ? "jugador" : "jugadores"}
-        </span>
+      <div
+        className="mb-2 text-label-md-bold"
+        style={{ color: "var(--accent-default)" }}
+      >
+        Quién avanza
       </div>
-      {ordenados.length === 0 ? (
-        <p className="text-label-md text-text-secondary">
-          Nadie pronosticó este partido.
-        </p>
-      ) : (
-        ordenados.map((pron) => (
-          <FilaPronostico
-            key={pron.usuario_id}
-            pron={pron}
-            esUsuario={pron.usuario_id === usuarioId}
-            partido={partido}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-function BotonDetalle({ abierta }: { abierta: boolean }) {
-  return (
-    <div
-      className="mt-2 flex w-full items-center justify-center gap-1 border-t pt-2 text-label-md text-text-secondary"
-      style={{ borderColor: "var(--border)" }}
-    >
-      {abierta ? (
-        <>
-          <ChevronUp className="h-[14px] w-[14px]" />
-          Cerrar detalle
-        </>
-      ) : (
-        <>
-          <ChevronDown className="h-[14px] w-[14px]" />
-          Ver detalle
-        </>
-      )}
+      <div className="flex flex-col gap-1">
+        {avances.map((a) => (
+          <div
+            key={a.usuario_id}
+            className="flex items-center justify-between rounded-lg px-2 py-1"
+            style={{
+              backgroundColor:
+                a.usuario_id === usuarioId
+                  ? "var(--accent-subtle)"
+                  : "var(--surface-background)",
+            }}
+          >
+            <span className="truncate text-label-md">{a.nombre}</span>
+            <span className="flex-shrink-0 pl-2 text-label-md text-text-secondary">
+              {a.equipo_avanza_nombre ?? "Sin pronóstico"}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 function TarjetaEliminatoria({
   partido,
+  cruce,
+  config,
   pronosticos,
+  avances,
   usuarioId,
   abierta,
   onToggle,
 }: {
-  partido: Partido;
+  partido: PartidoLlave;
+  cruce: Cruce;
+  config: ConfigTorneo;
   pronosticos: Pronostico[];
+  avances: AvancePronosticado[];
   usuarioId: string;
   abierta: boolean;
   onToggle: () => void;
 }) {
-  const finalizado = partido.marcador_local != null && partido.marcador_visitante != null;
-  const nombreLocal = partido.local?.nombre ?? limpiarRef(partido.ref_local);
-  const nombreVisitante = partido.visitante?.nombre ?? limpiarRef(partido.ref_visitante);
-  const detalle = detalleInstancia(partido);
+  const jugado = estaJugado(partido);
+  const marcador = marcadorDe(partido);
+  const avanza = cruce.llave?.equipo_avanza_id ?? null;
+
+  /*
+   * El atenuado depende de la LLAVE, no del partido: solo se activa cuando
+   * `equipo_avanza_id` está definido, y entonces marca al eliminado en las
+   * dos cards, aunque en una de ellas haya ganado.
+   *
+   * Mientras la llave sigue abierta no se atenúa a nadie, ni siquiera al que
+   * perdió la ida: la vuelta puede darle la vuelta al cruce y adelantar un
+   * eliminado que todavía no existe sería mentir.
+   */
+  const atenuarLocal =
+    avanza != null &&
+    partido.equipo_local_id != null &&
+    partido.equipo_local_id !== avanza;
+  const atenuarVisitante =
+    avanza != null &&
+    partido.equipo_visitante_id != null &&
+    partido.equipo_visitante_id !== avanza;
+
+  const meta = [etiquetaFase(partido.fase), partido.sede]
+    .filter(Boolean)
+    .join(" · ");
+
+  // El bloque de la llave va en el último leg, que es donde se resuelve.
+  const esUltimoLeg = cruce.partidos[cruce.partidos.length - 1]?.id === partido.id;
 
   return (
-    <div
-      className="mb-2 rounded-xl bg-surface-card p-3"
-      style={{ border: abierta ? "1px solid var(--accent-default)" : "1px solid transparent" }}
+    <TarjetaPartido
+      meta={meta}
+      finalizado={jugado}
+      local={partido.local}
+      visitante={partido.visitante}
+      nombreLocal={nombreLado(partido.local, partido.ref_local)}
+      nombreVisitante={nombreLado(partido.visitante, partido.ref_visitante)}
+      marcador={marcador}
+      hora={horaLocal(partido.inicio_utc)}
+      detalleInstancia={detalleInstancia(partido)}
+      pill={pillDe(partido, cruce, config)}
+      atenuarLocal={atenuarLocal}
+      atenuarVisitante={atenuarVisitante}
+      destacada={abierta}
     >
-      {partido.sede && (
-        <div className="mb-2 text-label-md text-text-secondary">
-          {partido.sede}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {partido.local ? (
-            <Flag iso={partido.local.codigo_iso} size={22} />
-          ) : (
-            <span
-              className="inline-block flex-shrink-0 rounded-full"
-              style={{ width: 22, height: 22, backgroundColor: "var(--border)" }}
-            />
-          )}
-          <span className="truncate text-body-sm">{nombreLocal}</span>
-        </div>
-
-        <div className="flex-shrink-0 px-3 text-center">
-          {finalizado ? (
-            <span className="text-heading-md">
-              {partido.marcador_local} - {partido.marcador_visitante}
-            </span>
-          ) : (
-            <span className="rounded-md bg-surface-background px-2 py-1 text-label-md text-text-secondary">
-              {horaLocal(partido.inicio_utc)}
-            </span>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-          <span className="truncate text-right text-body-sm">{nombreVisitante}</span>
-          {partido.visitante ? (
-            <Flag iso={partido.visitante.codigo_iso} size={22} />
-          ) : (
-            <span
-              className="inline-block flex-shrink-0 rounded-full"
-              style={{ width: 22, height: 22, backgroundColor: "var(--border)" }}
-            />
-          )}
-        </div>
-      </div>
-
-      {finalizado && detalle && (
-        <div className="mt-1 text-center leading-tight text-text-secondary">
-          <div className="text-label-md-bold">{detalle.marcador}</div>
-          <div className="text-label-sm">{detalle.etiqueta}</div>
-        </div>
-      )}
-
-      {finalizado && (
+      {jugado && (
         <>
           <button onClick={onToggle} className="w-full">
             <BotonDetalle abierta={abierta} />
           </button>
-          {abierta && (
-            <DetallePronosticos
-              partido={partido}
-              pronosticos={pronosticos}
-              usuarioId={usuarioId}
-            />
+          {abierta && marcador && (
+            <>
+              <DetallePronosticos
+                pronosticos={pronosticos}
+                resultado={marcador}
+                usuarioId={usuarioId}
+              />
+              {esUltimoLeg && (
+                <BloqueAvances avances={avances} usuarioId={usuarioId} />
+              )}
+            </>
           )}
         </>
       )}
-    </div>
+    </TarjetaPartido>
   );
 }
 
-function FinalDesdePartido({
+function TarjetaFinal({
   partido,
   pronosticos,
+  avances,
   usuarioId,
   abierta,
   onToggle,
 }: {
-  partido: Partido;
+  partido: PartidoLlave;
   pronosticos: Pronostico[];
+  avances: AvancePronosticado[];
   usuarioId: string;
   abierta: boolean;
   onToggle: () => void;
 }) {
-  const finalizado = partido.marcador_local != null && partido.marcador_visitante != null;
-  const nombreLocal = partido.local?.nombre ?? limpiarRef(partido.ref_local);
-  const nombreVisitante = partido.visitante?.nombre ?? limpiarRef(partido.ref_visitante);
-  const detalle = detalleInstancia(partido);
-  const metaLine = `${tituloDia(partido.inicio_utc)}${partido.sede ? ` · ${partido.sede}` : ""}`;
-  const marcador = finalizado
-    ? `${partido.marcador_local} - ${partido.marcador_visitante}`
-    : null;
+  const jugado = estaJugado(partido);
+  const marcador = marcadorDe(partido);
+  const metaLine = [tituloDia(partido.inicio_utc), partido.sede]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <FinalCard
-      finalizado={finalizado}
-      nombreLocal={nombreLocal}
-      nombreVisitante={nombreVisitante}
-      local={
-        partido.local
-          ? { ...partido.local, abreviatura: null, logo_url: null }
-          : null
-      }
-      visitante={
-        partido.visitante
-          ? { ...partido.visitante, abreviatura: null, logo_url: null }
-          : null
-      }
-      marcador={marcador}
+      className="mb-2"
+      finalizado={jugado}
+      local={partido.local}
+      visitante={partido.visitante}
+      nombreLocal={nombreLado(partido.local, partido.ref_local)}
+      nombreVisitante={nombreLado(partido.visitante, partido.ref_visitante)}
+      marcador={marcador ? `${marcador.local} - ${marcador.visitante}` : null}
       hora={horaLocal(partido.inicio_utc)}
       metaLine={metaLine}
-      detalleInstancia={detalle}
+      detalleInstancia={detalleInstancia(partido)}
     >
-      {finalizado && (
+      {jugado && (
         <>
           <button onClick={onToggle} className="w-full">
             <BotonDetalle abierta={abierta} />
           </button>
-          {abierta && (
-            <DetallePronosticos
-              partido={partido}
-              pronosticos={pronosticos}
-              usuarioId={usuarioId}
-            />
+          {abierta && marcador && (
+            <>
+              <DetallePronosticos
+                pronosticos={pronosticos}
+                resultado={marcador}
+                usuarioId={usuarioId}
+              />
+              <BloqueAvances avances={avances} usuarioId={usuarioId} />
+            </>
           )}
         </>
       )}
@@ -438,15 +412,44 @@ function FinalDesdePartido({
 }
 
 export function EliminatoriasLista({
-  partidos,
+  cruces,
   pronosticos,
+  avances,
   usuarioId,
+  config,
 }: {
-  partidos: Partido[];
+  cruces: Cruce[];
   pronosticos: Record<number, Pronostico[]>;
+  avances: Record<number, AvancePronosticado[]>;
   usuarioId: string;
+  config: ConfigTorneo;
 }) {
-  const [faseActiva, setFaseActiva] = useState(() => calcularFaseActiva(partidos));
+  /* Las fases y su orden salen del config: nada de listas fijas de rondas. */
+  const fases = useMemo(
+    () =>
+      config.fases.filter((fase) => {
+        const formato = formatoDeFase(config, fase);
+        return formato === "ida_vuelta" || formato === "partido_unico";
+      }),
+    [config]
+  );
+
+  /*
+   * La llave deja de ser un contenedor visual: cada partido va suelto, en su
+   * fecha. Se conserva el cruce al lado para poder calcular pill y atenuado.
+   */
+  const partidos = useMemo(() => {
+    const lista = cruces.flatMap((cruce) =>
+      cruce.partidos.map((partido) => ({ partido, cruce }))
+    );
+    return lista.sort((x, y) =>
+      (x.partido.inicio_utc ?? "").localeCompare(y.partido.inicio_utc ?? "")
+    );
+  }, [cruces]);
+
+  const [faseActiva, setFaseActiva] = useState(
+    () => faseInicial(fases, partidos) ?? fases[0] ?? ""
+  );
   const [abierto, setAbierto] = useState<number | null>(null);
 
   const barraRef = useRef<HTMLDivElement | null>(null);
@@ -458,28 +461,42 @@ export function EliminatoriasLista({
     if (!barra || !chip) return;
     const offset = chip.offsetLeft - barra.clientWidth / 2 + chip.clientWidth / 2;
     barra.scrollTo({ left: Math.max(0, offset), behavior: "auto" });
-     
   }, []);
 
-  const partidosFase = partidos.filter((p) => p.fase === faseActiva);
-  const esFinal = faseActiva === "final";
+  if (fases.length === 0) {
+    return (
+      <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
+        Esta competición no tiene fase eliminatoria.
+      </p>
+    );
+  }
 
-  const toggle = (id: number) => setAbierto(abierto === id ? null : id);
+  const delaFase = partidos.filter((x) => x.partido.fase === faseActiva);
+  const ultimaFase = config.fases[config.fases.length - 1];
 
-  const gruposDia: { clave: string; titulo: string; partidos: Partido[] }[] = [];
+  // Mismo agrupado por día que Partidos: la lista sigue el calendario.
+  const dias: {
+    clave: string;
+    titulo: string;
+    items: typeof delaFase;
+  }[] = [];
   let claveActual = "";
-  for (const p of partidosFase) {
-    const clave = claveDia(p.inicio_utc);
+  for (const item of delaFase) {
+    const clave = claveDia(item.partido.inicio_utc);
     if (clave !== claveActual) {
       claveActual = clave;
-      gruposDia.push({
+      dias.push({
         clave,
-        titulo: tituloDia(p.inicio_utc),
-        partidos: [],
+        titulo: tituloDia(item.partido.inicio_utc),
+        items: [],
       });
     }
-    gruposDia[gruposDia.length - 1].partidos.push(p);
+    dias[dias.length - 1].items.push(item);
   }
+
+  const toggle = (id: number) => setAbierto(abierto === id ? null : id);
+  const avancesDe = (cruce: Cruce) =>
+    cruce.llave ? avances[cruce.llave.id] ?? [] : [];
 
   return (
     <div>
@@ -488,62 +505,89 @@ export function EliminatoriasLista({
           ref={barraRef}
           className="flex gap-2 overflow-x-auto px-[18px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {FASES.map((fase) => {
-            const activa = fase.valor === faseActiva;
+          {fases.map((fase) => {
+            const activa = fase === faseActiva;
             return (
               <button
-                key={fase.valor}
+                key={fase}
                 ref={activa ? chipActivoRef : null}
-                onClick={() => setFaseActiva(fase.valor)}
+                onClick={() => setFaseActiva(fase)}
                 className="flex-shrink-0 rounded-full px-4 py-2 text-label-md"
                 style={{
-                  backgroundColor: activa ? "var(--accent-default)" : "var(--surface-card)",
+                  backgroundColor: activa
+                    ? "var(--accent-default)"
+                    : "var(--surface-card)",
                   color: activa ? "var(--text-on-accent)" : "var(--text-tertiary)",
                 }}
               >
-                {fase.label}
+                {etiquetaFase(fase)}
               </button>
             );
           })}
         </div>
         <div
           className="pointer-events-none absolute right-0 top-0 h-full w-10"
-          style={{ background: "linear-gradient(90deg, transparent, var(--background))" }}
+          style={{
+            background: "linear-gradient(90deg, transparent, var(--background))",
+          }}
         />
       </div>
 
-      {partidosFase.length === 0 ? (
-        <p className="text-body-sm text-text-secondary">
-          Aún no hay partidos en esta fase.
+      {delaFase.length === 0 ? (
+        <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
+          El sorteo de esta fase todavía no está hecho.
         </p>
-      ) : esFinal ? (
-        partidosFase.map((p) => (
-          <FinalDesdePartido
-            key={p.id}
-            partido={p}
-            pronosticos={pronosticos[p.id] ?? []}
-            usuarioId={usuarioId}
-            abierta={abierto === p.id}
-            onToggle={() => toggle(p.id)}
-          />
-        ))
       ) : (
-        gruposDia.map((g) => (
-          <div key={g.clave} className="mb-5">
-            <h2 className="mb-3 text-body-sm">{g.titulo}</h2>
-            {g.partidos.map((p) => (
-              <TarjetaEliminatoria
-                key={p.id}
-                partido={p}
-                pronosticos={pronosticos[p.id] ?? []}
-                usuarioId={usuarioId}
-                abierta={abierto === p.id}
-                onToggle={() => toggle(p.id)}
-              />
-            ))}
+        dias.map((dia) => (
+          <div key={dia.clave} className="mb-5">
+            <h2 className="mb-3 text-body-sm">{dia.titulo}</h2>
+            {dia.items.map(({ partido, cruce }) =>
+              partido.fase === ultimaFase ? (
+                <TarjetaFinal
+                  key={partido.id}
+                  partido={partido}
+                  pronosticos={pronosticos[partido.id] ?? []}
+                  avances={avancesDe(cruce)}
+                  usuarioId={usuarioId}
+                  abierta={abierto === partido.id}
+                  onToggle={() => toggle(partido.id)}
+                />
+              ) : (
+                <TarjetaEliminatoria
+                  key={partido.id}
+                  partido={partido}
+                  cruce={cruce}
+                  config={config}
+                  pronosticos={pronosticos[partido.id] ?? []}
+                  avances={avancesDe(cruce)}
+                  usuarioId={usuarioId}
+                  abierta={abierto === partido.id}
+                  onToggle={() => toggle(partido.id)}
+                />
+              )
+            )}
           </div>
         ))
       )}
     </div>
   );
+}
+
+/**
+ * Fase que se muestra al entrar: la primera con algo por jugar. Si ya está
+ * todo jugado, la última que tenga partidos; si no hay nada, ninguna.
+ */
+function faseInicial(
+  fases: string[],
+  partidos: { partido: PartidoLlave }[]
+): string | null {
+  const pendiente = fases.find((fase) =>
+    partidos.some((x) => x.partido.fase === fase && !estaJugado(x.partido))
+  );
+  if (pendiente) return pendiente;
+
+  const conPartidos = fases.filter((fase) =>
+    partidos.some((x) => x.partido.fase === fase)
+  );
+  return conPartidos[conPartidos.length - 1] ?? null;
 }

@@ -1,8 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
-import { Escudo, type EquipoEscudo } from "@/components/escudo";
+import { type EquipoEscudo } from "@/components/escudo";
+import { TarjetaPartido } from "@/components/tarjeta-partido";
+import {
+  BotonDetalle,
+  DetallePronosticos,
+  type Pronostico,
+} from "@/components/pronosticos-detalle";
 import { FinalCard } from "@/components/final-card";
 import { FiltroDropdown } from "@/components/filtro-dropdown";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
@@ -10,14 +15,7 @@ import { esIdaVuelta, ordenarFases, type ConfigTorneo } from "@/lib/config-torne
 
 export type EquipoPartido = EquipoEscudo & { id: number };
 
-export type Pronostico = {
-  usuario_id: string;
-  nombre: string;
-  marcador_local: number;
-  marcador_visitante: number;
-  points_earned: number;
-  llanero_solitario: boolean;
-};
+export type { Pronostico };
 
 export type Partido = {
   id: number;
@@ -116,175 +114,6 @@ function detalleInstancia(
   return null;
 }
 
-function motivoPuntaje(pron: Pronostico, partido: Partido): string {
-  const ml = partido.marcador_local as number;
-  const mv = partido.marcador_visitante as number;
-  const exacto = pron.marcador_local === ml && pron.marcador_visitante === mv;
-  const realEmpate = ml === mv;
-  const predEmpate = pron.marcador_local === pron.marcador_visitante;
-  const aciertaGanador =
-    (ml > mv && pron.marcador_local > pron.marcador_visitante) ||
-    (ml < mv && pron.marcador_local < pron.marcador_visitante);
-
-  if (exacto && !realEmpate)
-    return pron.llanero_solitario ? "Exacto + llanero" : "Marcador exacto";
-  if (exacto && realEmpate)
-    return pron.llanero_solitario ? "Empate exacto + llanero" : "Empate exacto";
-  if (!realEmpate && aciertaGanador) return "Acertó ganador";
-  if (realEmpate && predEmpate) return "Acertó empate";
-  return "No acertó";
-}
-
-function inicial(nombre: string) {
-  return nombre.trim().charAt(0).toUpperCase();
-}
-
-function FilaPronostico({
-  pron,
-  esUsuario,
-  partido,
-}: {
-  pron: Pronostico;
-  esUsuario: boolean;
-  partido: Partido;
-}) {
-  const colorPuntos =
-    pron.points_earned > 0
-      ? "var(--feedback-success)"
-      : pron.points_earned === 0
-      ? "var(--text-idle)"
-      : "var(--text-primary)";
-
-  return (
-    <div
-      className="mb-2 flex items-center gap-2 rounded-lg p-2"
-      style={{
-        backgroundColor: esUsuario
-          ? "var(--accent-subtle)"
-          : "var(--surface-background)",
-        border: esUsuario ? "1px solid var(--accent-default)" : "none",
-      }}
-    >
-      <span
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full text-heading-sm"
-        style={{
-          border: esUsuario ? "2px solid var(--accent-default)" : "none",
-          backgroundColor: esUsuario ? "transparent" : "var(--border)",
-          color: esUsuario ? "var(--accent-default)" : "var(--text-tertiary)",
-        }}
-      >
-        {inicial(pron.nombre)}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-body-sm">{pron.nombre}</span>
-          {esUsuario && (
-            <span
-              className="flex-shrink-0 rounded-md px-1 py-px text-label-xs"
-              style={{
-                backgroundColor: "var(--accent-default)",
-                color: "var(--text-on-accent)",
-              }}
-            >
-              Tú
-            </span>
-          )}
-          {pron.llanero_solitario && (
-            <span
-              className="flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-px text-label-xs"
-              style={{
-                backgroundColor: "var(--surface-background)",
-                color: "var(--accent-default)",
-              }}
-            >
-              <Star className="h-[9px] w-[9px]" />
-              Llanero
-            </span>
-          )}
-        </div>
-        <div className="mt-px text-label-md text-text-secondary">
-          Pronosticó {pron.marcador_local}-{pron.marcador_visitante}
-        </div>
-      </div>
-
-      <div className="flex-shrink-0 text-right">
-        <div className="text-heading-md" style={{ color: colorPuntos }}>
-          {pron.points_earned > 0 ? `+${pron.points_earned}` : pron.points_earned}
-        </div>
-        <div className="text-label-xs text-text-secondary">
-          {motivoPuntaje(pron, partido)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetallePronosticos({
-  partido,
-  pronosticos,
-  usuarioId,
-}: {
-  partido: Partido;
-  pronosticos: Pronostico[];
-  usuarioId: string;
-}) {
-  const ordenados = [...pronosticos].sort(
-    (a, b) => b.points_earned - a.points_earned
-  );
-
-  return (
-    <div className="mt-3">
-      <div className="mb-3 flex items-center justify-between">
-        <span
-          className="text-label-md-bold"
-          style={{ color: "var(--accent-default)" }}
-        >
-          Pronósticos
-        </span>
-        <span className="text-label-sm text-text-secondary">
-          {ordenados.length} {ordenados.length === 1 ? "jugador" : "jugadores"}
-        </span>
-      </div>
-      {ordenados.length === 0 ? (
-        <p className="text-label-md text-text-secondary">
-          Nadie pronosticó este partido.
-        </p>
-      ) : (
-        ordenados.map((pron) => (
-          <FilaPronostico
-            key={pron.usuario_id}
-            pron={pron}
-            esUsuario={pron.usuario_id === usuarioId}
-            partido={partido}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-function BotonDetalle({ abierta }: { abierta: boolean }) {
-  return (
-    <div
-      className="mt-2 flex w-full items-center justify-center gap-1 border-t pt-2 text-label-md text-text-secondary"
-      style={{ borderColor: "var(--border)" }}
-    >
-      {abierta ? (
-        <>
-          <ChevronUp className="h-[14px] w-[14px]" />
-          Cerrar detalle
-        </>
-      ) : (
-        <>
-          <ChevronDown className="h-[14px] w-[14px]" />
-          Ver detalle
-        </>
-      )}
-    </div>
-  );
-}
-
 function Tarjeta({
   partido,
   config,
@@ -303,85 +132,43 @@ function Tarjeta({
   const finalizado = estaFinalizado(partido);
   const ml = partido.marcador_local;
   const mv = partido.marcador_visitante;
-  const localPierde = finalizado && ml != null && mv != null && ml < mv;
-  const visitantePierde = finalizado && ml != null && mv != null && mv < ml;
-
-  const detalle = detalleInstancia(partido);
+  const marcador =
+    finalizado && ml != null && mv != null
+      ? { local: ml, visitante: mv }
+      : null;
 
   return (
-    <div
-      className="mb-2 rounded-xl bg-surface-card p-3"
-      style={{
-        border: abierta
-          ? "1px solid var(--accent-default)"
-          : "1px solid transparent",
-      }}
+    <TarjetaPartido
+      meta={metaPartido(partido, config)}
+      finalizado={finalizado}
+      local={partido.local}
+      visitante={partido.visitante}
+      nombreLocal={nombreEquipo(partido.local, partido.ref_local)}
+      nombreVisitante={nombreEquipo(partido.visitante, partido.ref_visitante)}
+      marcador={marcador}
+      hora={horaLocal(partido.inicio_utc)}
+      detalleInstancia={detalleInstancia(partido)}
+      // Aquí se atenúa al perdedor del propio partido; en Eliminatorias manda
+      // el eliminado de la llave.
+      atenuarLocal={marcador != null && marcador.local < marcador.visitante}
+      atenuarVisitante={marcador != null && marcador.visitante < marcador.local}
+      destacada={abierta}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <span className="truncate text-label-md text-text-secondary">
-          {metaPartido(partido, config)}
-        </span>
-        {finalizado && (
-          <span className="flex-shrink-0 pl-2 text-label-sm text-feedback-success">
-            Finalizado
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <div
-          className="flex min-w-0 flex-1 items-center gap-2"
-          style={{ opacity: localPierde ? 0.45 : 1 }}
-        >
-          <Escudo equipo={partido.local} size={20} />
-          <span className="truncate text-body-sm">
-            {nombreEquipo(partido.local, partido.ref_local)}
-          </span>
-        </div>
-
-        {finalizado ? (
-          <span className="flex-shrink-0 text-heading-md">
-            {ml} - {mv}
-          </span>
-        ) : (
-          <span className="flex-shrink-0 rounded-md bg-surface-background px-2 py-1 text-label-md text-text-secondary">
-            {horaLocal(partido.inicio_utc)}
-          </span>
-        )}
-
-        <div
-          className="flex min-w-0 flex-1 items-center justify-end gap-2"
-          style={{ opacity: visitantePierde ? 0.45 : 1 }}
-        >
-          <span className="truncate text-right text-body-sm">
-            {nombreEquipo(partido.visitante, partido.ref_visitante)}
-          </span>
-          <Escudo equipo={partido.visitante} size={20} />
-        </div>
-      </div>
-
-      {finalizado && detalle && (
-        <div className="mt-1 text-center leading-tight text-text-secondary">
-          <div className="text-label-md-bold">{detalle.marcador}</div>
-          <div className="text-label-sm">{detalle.etiqueta}</div>
-        </div>
-      )}
-
       {finalizado && (
         <>
           <button onClick={onToggle} className="w-full">
             <BotonDetalle abierta={abierta} />
           </button>
-          {abierta && (
+          {abierta && marcador && (
             <DetallePronosticos
-              partido={partido}
               pronosticos={pronosticos}
+              resultado={marcador}
               usuarioId={usuarioId}
             />
           )}
         </>
       )}
-    </div>
+    </TarjetaPartido>
   );
 }
 
@@ -401,6 +188,10 @@ function TarjetaFinal({
   onToggle: () => void;
 }) {
   const finalizado = estaFinalizado(partido);
+  const ml = partido.marcador_local;
+  const mv = partido.marcador_visitante;
+  const resultado =
+    ml != null && mv != null ? { local: ml, visitante: mv } : null;
   const metaLine = `${tituloDia(partido.inicio_utc)} · ${metaPartido(partido, config)}`;
 
   return (
@@ -411,11 +202,7 @@ function TarjetaFinal({
       visitante={partido.visitante}
       nombreLocal={nombreEquipo(partido.local, partido.ref_local)}
       nombreVisitante={nombreEquipo(partido.visitante, partido.ref_visitante)}
-      marcador={
-        finalizado
-          ? `${partido.marcador_local} - ${partido.marcador_visitante}`
-          : null
-      }
+      marcador={finalizado ? `${ml} - ${mv}` : null}
       hora={horaLocal(partido.inicio_utc)}
       metaLine={metaLine}
       detalleInstancia={detalleInstancia(partido)}
@@ -425,10 +212,10 @@ function TarjetaFinal({
           <button onClick={onToggle} className="w-full">
             <BotonDetalle abierta={abierta} />
           </button>
-          {abierta && (
+          {abierta && resultado && (
             <DetallePronosticos
-              partido={partido}
               pronosticos={pronosticos}
+              resultado={resultado}
               usuarioId={usuarioId}
             />
           )}
