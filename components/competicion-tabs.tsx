@@ -13,7 +13,7 @@ import { usePathname, useParams } from "next/navigation";
 const TABS = [
   { sufijo: "partidos", label: "Partidos", disponible: true },
   { sufijo: "eliminatorias", label: "Eliminatorias", disponible: false },
-  { sufijo: "tabla", label: "Tabla", disponible: false },
+  { sufijo: "tabla", label: "Tabla", disponible: true },
 ];
 
 export function CompeticionTabs() {
