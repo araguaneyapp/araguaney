@@ -53,11 +53,11 @@ export default async function HubPage() {
         </h1>
       </div>
 
-      <h2 className="mb-3 text-heading-md">Tus torneos</h2>
+      <h2 className="mb-3 text-heading-md">Tus competiciones</h2>
 
       {torneos.length === 0 ? (
         <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
-          Todavía no hay torneos disponibles.
+          Todavía no hay competiciones disponibles.
         </p>
       ) : (
         <div className="flex flex-col gap-2">

@@ -14,6 +14,23 @@ export type FormatoFase = "puntos" | "ida_vuelta" | "partido_unico";
 
 const FORMATOS: FormatoFase[] = ["puntos", "ida_vuelta", "partido_unico"];
 
+/**
+ * Claves de `config.puntajes`. Tiparlas como unión hace que una falta de
+ * ortografía al leerlas sea un error de compilación y no una fila en blanco.
+ */
+export type ClavePuntaje =
+  | "marcador_exacto"
+  | "acertar_ganador"
+  | "empate_exacto"
+  | "acertar_empate"
+  | "llanero"
+  | "quien_avanza"
+  | "campeon"
+  | "subcampeon"
+  | "goleador"
+  | "clasificacion_equipo"
+  | "clasificacion_posicion";
+
 export type ConfigTorneo = {
   /** Fases del torneo, en orden de disputa. */
   fases: string[];
@@ -21,6 +38,8 @@ export type ConfigTorneo = {
   fasesFormato: Record<string, FormatoFase>;
   /** Multiplicador de puntos por fase. */
   multiplicadores: Record<string, number>;
+  /** Puntos por acierto. Una clave ausente = esa regla no aplica al torneo. */
+  puntajes: Partial<Record<ClavePuntaje, number>>;
   extras: {
     campeon: boolean;
     subcampeon: boolean;
@@ -91,6 +110,7 @@ export function leerConfig(raw: unknown): ConfigTorneo {
     fases: listaDeTextos(c.fases),
     fasesFormato: mapaDeFormatos(c.fases_formato),
     multiplicadores: mapaDeNumeros(c.multiplicadores),
+    puntajes: mapaDeNumeros(c.puntajes) as Partial<Record<ClavePuntaje, number>>,
     extras: {
       campeon: booleano(extras.campeon, false),
       subcampeon: booleano(extras.subcampeon, false),

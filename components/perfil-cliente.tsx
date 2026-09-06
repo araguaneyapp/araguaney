@@ -12,6 +12,7 @@ import {
   BookOpen,
   ChevronRight,
   ClipboardList,
+  ArrowLeftRight,
 } from "lucide-react";
 
 export function PerfilCliente({
@@ -21,6 +22,8 @@ export function PerfilCliente({
   posicion,
   puntos,
   esAdmin,
+  torneoNombre,
+  torneoSlug,
 }: {
   nombre: string;
   correo: string;
@@ -28,6 +31,8 @@ export function PerfilCliente({
   posicion: number | null;
   puntos: number;
   esAdmin: boolean;
+  torneoNombre: string;
+  torneoSlug: string;
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
@@ -88,6 +93,15 @@ export function PerfilCliente({
         <div className="text-center">
           <div className="text-display-sm">{nombreActual || "Sin nombre"}</div>
           <div className="mt-px text-body-sm text-text-secondary">{correo}</div>
+          <div
+            className="mt-2 inline-block rounded-full px-3 py-1 text-label-sm"
+            style={{
+              backgroundColor: "var(--accent-subtle)",
+              color: "var(--accent-default)",
+            }}
+          >
+            {torneoNombre}
+          </div>
         </div>
 
         <div className="mt-1 flex gap-2">
@@ -131,7 +145,7 @@ export function PerfilCliente({
       </div>
       <div className="mb-5 rounded-xl bg-surface-card">
         <Link
-          href="/reglas"
+          href={`/${torneoSlug}/reglas`}
           className="flex w-full items-center justify-between px-4 py-4"
         >
           <div className="flex items-center gap-3">
@@ -142,22 +156,39 @@ export function PerfilCliente({
         </Link>
       </div>
 
+      <div className="mb-2 text-label-md-caps text-text-secondary">
+        COMPETICIÓN
+      </div>
+      <div className="mb-5 rounded-xl bg-surface-card">
+        <Link href="/" className="flex w-full items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <ArrowLeftRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            <span className="text-body-md">Cambiar competición</span>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+        </Link>
+      </div>
+
       {esAdmin && (
         <>
           <div className="mb-2 text-label-md-caps text-text-secondary">
             ADMINISTRACIÓN
           </div>
-          <div className="mb-5 rounded-xl bg-surface-card">
-            <Link
-              href="/perfil/admin"
-              className="flex w-full items-center justify-between px-4 py-4"
-            >
-              <div className="flex items-center gap-3">
-                <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-                <span className="text-body-md">Cargar resultados</span>
-              </div>
-              <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            </Link>
+          {/*
+            Apagada a propósito: la pantalla de admin todavía escribe contra el
+            esquema viejo (sin tournament_id, con equipo_avanza_id en matches).
+            La ruta /perfil/admin sigue existiendo; se enciende al migrarla.
+          */}
+          <div className="mb-5 flex w-full items-center justify-between rounded-xl bg-surface-card px-4 py-4">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--text-idle)" }} />
+              <span className="text-body-md" style={{ color: "var(--text-idle)" }}>
+                Cargar resultados
+              </span>
+            </div>
+            <span className="text-label-sm text-text-secondary">
+              Pendiente de migrar
+            </span>
           </div>
         </>
       )}
