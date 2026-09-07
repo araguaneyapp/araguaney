@@ -4,11 +4,10 @@ type Jugador = {
   usuario_id: string;
   nombre: string;
   puntos_total: number;
-  posicion: number;
 };
 
-function inicial(nombre: string) {
-  return nombre.trim().charAt(0).toUpperCase();
+function inicial(nombre: string | null) {
+  return (nombre ?? "").trim().charAt(0).toUpperCase() || "?";
 }
 
 function Puesto({

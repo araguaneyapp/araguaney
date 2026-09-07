@@ -3,18 +3,23 @@
 import { useState } from "react";
 import { ChevronUp, ChevronDown, Minus } from "lucide-react";
 
-type Jugador = {
+export type Movimiento = "sube" | "baja" | "igual";
+
+export type Jugador = {
   usuario_id: string;
   nombre: string;
   puntos_partidos: number;
-  puntos_clasificados: number;
+  puntos_avance: number;
+  puntos_clasificacion: number;
   puntos_especiales: number;
   puntos_total: number;
-  posicion: number;
-  movimiento: string;
+  /** Null mientras la clasificación no se haya calculado. */
+  posicion: number | null;
+  /** Ya resuelto en el servidor contra ranking_snapshot. */
+  movimiento: Movimiento;
 };
 
-function Movimiento({ movimiento }: { movimiento: string }) {
+function FlechaMovimiento({ movimiento }: { movimiento: Movimiento }) {
   if (movimiento === "sube")
     return <ChevronUp className="h-[15px] w-[15px]" style={{ color: "var(--feedback-success)" }} />;
   if (movimiento === "baja")
@@ -24,9 +29,14 @@ function Movimiento({ movimiento }: { movimiento: string }) {
 
 function Desglose({ jugador, esUsuario }: { jugador: Jugador; esUsuario: boolean }) {
   const color = esUsuario ? "var(--accent-default)" : "var(--text-secondary)";
+  /*
+   * Las cuatro categorías se muestran siempre, aunque estén en cero: un 0 es
+   * información ("no has puntuado ahí"), una columna ausente no lo es.
+   */
   const items = [
     { valor: jugador.puntos_partidos, label: "Partidos" },
-    { valor: jugador.puntos_clasificados, label: "Clasif." },
+    { valor: jugador.puntos_avance, label: "Avance" },
+    { valor: jugador.puntos_clasificacion, label: "Clasific." },
     { valor: jugador.puntos_especiales, label: "Extras" },
   ];
   return (
@@ -67,12 +77,19 @@ function Fila({
       >
         <span
           className="w-[18px] flex-shrink-0 text-heading-md"
-          style={{ color: esUsuario ? "var(--accent-default)" : "var(--text-tertiary)" }}
+          style={{
+            color:
+              jugador.posicion == null
+                ? "var(--text-idle)"
+                : esUsuario
+                ? "var(--accent-default)"
+                : "var(--text-tertiary)",
+          }}
         >
-          {jugador.posicion}
+          {jugador.posicion ?? "–"}
         </span>
         <span className="flex w-[18px] flex-shrink-0 justify-center">
-          <Movimiento movimiento={jugador.movimiento} />
+          <FlechaMovimiento movimiento={jugador.movimiento} />
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-2 text-body-md">
           <span className="truncate" title={jugador.nombre}>

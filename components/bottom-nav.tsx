@@ -60,7 +60,7 @@ export function BottomNav() {
       label: "Ranking",
       icon: Trophy,
       href: `${base}/ranking`,
-      disponible: false,
+      disponible: true,
       activa: empieza("ranking"),
     },
     {
