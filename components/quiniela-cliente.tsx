@@ -1,16 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import {
-  Plus,
-  Minus,
-  Lock,
-  Check,
-  ChevronRight,
-  ListOrdered,
-  Trophy,
-} from "lucide-react";
+import { Plus, Minus, Lock, Check, ListOrdered, Trophy } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
@@ -18,9 +9,12 @@ import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import {
   esIdaVuelta,
   plazasClasificacion,
+  detalleExtras,
   type ConfigTorneo,
 } from "@/lib/config-torneo";
 import { ahoraMs } from "@/lib/tiempo";
+import { claveDia, tituloDia, horaLocal } from "@/lib/fechas";
+import { AccesoPrediccion } from "@/components/acceso-prediccion";
 
 type EquipoQuiniela = EquipoEscudo & { id: number };
 
@@ -72,37 +66,12 @@ const ESTADOS_VISIBLES: Record<string, string> = {
   finalizada: "Finalizada",
 };
 
-const CLAVE_SIN_FECHA = "sin-fecha";
-
 /**
  * Un partido sin deadline se considera abierto: lo contrario dejaría partidos
  * imposibles de predecir si falta cargar la fecha.
  */
 function estaBloqueado(partido: PartidoQuiniela, ahora: number) {
   return partido.deadline != null && new Date(partido.deadline).getTime() <= ahora;
-}
-
-function claveDia(inicioUtc: string | null) {
-  if (!inicioUtc) return CLAVE_SIN_FECHA;
-  const f = new Date(inicioUtc);
-  return `${f.getFullYear()}-${f.getMonth()}-${f.getDate()}`;
-}
-
-function tituloDia(inicioUtc: string | null) {
-  if (!inicioUtc) return "Por programar";
-  const f = new Date(inicioUtc);
-  const dia = f.toLocaleDateString("es", { weekday: "long" });
-  const dd = String(f.getDate()).padStart(2, "0");
-  const mm = String(f.getMonth() + 1).padStart(2, "0");
-  return `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dd}/${mm}`;
-}
-
-function horaLocal(inicioUtc: string | null) {
-  if (!inicioUtc) return "Por definir";
-  return new Date(inicioUtc).toLocaleTimeString("es", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function nombreEquipo(equipo: EquipoQuiniela | null, ref: string | null) {
@@ -279,59 +248,6 @@ function TarjetaPartido({
         onCambio={(delta) => onCambio("visitante", delta)}
       />
     </div>
-  );
-}
-
-/** "Campeón, subcampeón y goleador", con solo los extras que el torneo tenga. */
-function detalleExtras(config: ConfigTorneo) {
-  const partes = [
-    config.extras.campeon ? "campeón" : null,
-    config.extras.subcampeon ? "subcampeón" : null,
-    config.extras.goleador ? "goleador" : null,
-  ].filter((p): p is string => p !== null);
-
-  const texto =
-    partes.length <= 1
-      ? partes[0] ?? ""
-      : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
-
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-
-/** Puerta a una pantalla de predicción de todo el torneo (Top N, extras). */
-function AccesoPrediccion({
-  href,
-  icono,
-  titulo,
-  detalle,
-}: {
-  href: string;
-  icono: React.ReactNode;
-  titulo: string;
-  detalle: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-xl bg-surface-card p-4"
-    >
-      <span
-        className="flex h-[36px] w-[36px] flex-shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--accent-subtle)" }}
-      >
-        {icono}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-body-md leading-tight">{titulo}</span>
-        <span className="mt-px block text-label-md text-text-secondary">
-          {detalle}
-        </span>
-      </span>
-      <ChevronRight
-        className="h-[18px] w-[18px] flex-shrink-0"
-        style={{ color: "var(--icons-secondary)" }}
-      />
-    </Link>
   );
 }
 

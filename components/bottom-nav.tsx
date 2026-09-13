@@ -38,7 +38,7 @@ export function BottomNav() {
       label: "Inicio",
       icon: House,
       href: base,
-      disponible: false,
+      disponible: true,
       // Exacta: por prefijo se marcaría activa en todas las rutas del torneo.
       activa: pathname === base,
     },
