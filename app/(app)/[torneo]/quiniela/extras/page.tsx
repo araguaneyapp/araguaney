@@ -3,11 +3,13 @@ import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
 import { ahoraMs } from "@/lib/tiempo";
+import { plazasClasificacion } from "@/lib/config-torneo";
 import {
   ExtrasCliente,
   type EquipoOpcion,
   type JugadorOpcion,
   type ExtrasGuardados,
+  type TopOpcion,
 } from "@/components/extras-cliente";
 
 /** Fila cruda de `players` con el club embebido. */
@@ -33,9 +35,11 @@ export default async function ExtrasPage({
     subcampeon: config.extras.subcampeon,
     goleador: config.extras.goleador,
   };
+  const plazas = plazasClasificacion(config);
+  const hayTop = Boolean(config.prediccionClasificacion.tipo && plazas);
 
-  // Un torneo que no declara ningún extra no tiene esta pantalla.
-  if (!secciones.campeon && !secciones.subcampeon && !secciones.goleador) {
+  // Un torneo que no declara ningún extra ni Top N no tiene esta pantalla.
+  if (!hayTop && !secciones.campeon && !secciones.subcampeon && !secciones.goleador) {
     notFound();
   }
 
@@ -47,13 +51,14 @@ export default async function ExtrasPage({
 
   const usuarioId = user?.id ?? "";
   const cierreJornada = config.extras.cierreJornada;
-  const necesitaEquipos = secciones.campeon || secciones.subcampeon;
+  const necesitaEquipos = secciones.campeon || secciones.subcampeon || hayTop;
 
   const [
     { data: equiposData },
     { data: jugadoresData },
     { data: extrasData },
     { data: jornadas },
+    { data: topData },
   ] = await Promise.all([
     necesitaEquipos
       ? supabase
@@ -100,6 +105,14 @@ export default async function ExtrasPage({
           .select("id")
           .eq("tournament_id", torneo.id)
           .eq("numero", cierreJornada),
+
+    hayTop
+      ? supabase
+          .from("standings_predictions")
+          .select("equipo_id, posicion")
+          .eq("tournament_id", torneo.id)
+          .eq("usuario_id", usuarioId)
+      : Promise.resolve({ data: [] }),
   ]);
 
   /*
@@ -127,12 +140,27 @@ export default async function ExtrasPage({
     (j) => ({ ...j, equipo: uno(j.equipo) })
   );
 
+  const equipos = (equiposData ?? []) as EquipoOpcion[];
+
+  let top: TopOpcion | null = null;
+  if (hayTop && plazas != null) {
+    const equipoPorId = new Map(equipos.map((e) => [e.id, e]));
+    const seleccionados: (EquipoOpcion | null)[] = Array(plazas).fill(null);
+    for (const p of (topData ?? []) as { equipo_id: number; posicion: number }[]) {
+      if (p.posicion >= 1 && p.posicion <= plazas) {
+        seleccionados[p.posicion - 1] = equipoPorId.get(p.equipo_id) ?? null;
+      }
+    }
+    top = { plazas, seleccionados };
+  }
+
   return (
     <ExtrasCliente
-      equipos={(equiposData ?? []) as EquipoOpcion[]}
+      equipos={equipos}
       jugadores={jugadores}
       extras={(extrasData ?? null) as ExtrasGuardados | null}
       secciones={secciones}
+      top={top}
       usuarioId={usuarioId}
       torneoId={torneo.id}
       torneoSlug={torneo.slug}

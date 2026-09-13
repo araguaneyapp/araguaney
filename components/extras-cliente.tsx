@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Check, Lock, Medal, Search, Target, Trophy, X } from "lucide-react";
+import Link from "next/link";
+import { Check, Lock, Medal, Search, Star, Trophy, Volleyball, X } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
@@ -30,6 +31,12 @@ export type SeccionesExtras = {
   campeon: boolean;
   subcampeon: boolean;
   goleador: boolean;
+};
+
+/** Predicción del Top N: cuántas plazas y qué equipo va en cada una. */
+export type TopOpcion = {
+  plazas: number;
+  seleccionados: (EquipoOpcion | null)[];
 };
 
 type Ranura = "campeon" | "subcampeon" | "goleador";
@@ -240,6 +247,69 @@ function ListaJugadores({
   );
 }
 
+/** Un círculo con el escudo elegido, o vacío/punteado si esa plaza no tiene equipo. */
+function CirculoTop({ equipo }: { equipo: EquipoOpcion | null }) {
+  if (!equipo) {
+    return (
+      <span
+        className="h-6 w-6 flex-shrink-0 rounded-full"
+        style={{ border: "1px dashed var(--icons-secondary)" }}
+      />
+    );
+  }
+  return <Escudo equipo={equipo} size={24} />;
+}
+
+/**
+ * Tarjeta del Top N: a diferencia de Campeón/Subcampeón/Goleador no elige
+ * nada acá mismo, navega a la pantalla de las 8 casillas. La vista previa
+ * (círculos llenos/vacíos en orden) evita repetir 8 nombres de equipo en un
+ * espacio pensado para uno solo.
+ */
+function TarjetaTop({
+  torneoSlug,
+  top,
+}: {
+  torneoSlug: string;
+  top: TopOpcion;
+}) {
+  const elegidos = top.seleccionados.filter((e) => e != null).length;
+
+  return (
+    <Link
+      href={`/${torneoSlug}/quiniela/clasificados`}
+      className="mb-3 block rounded-xl bg-surface-card p-4"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Star
+            className="h-[18px] w-[18px] flex-shrink-0"
+            style={{ color: "var(--icons-secondary)" }}
+          />
+          <span className="text-label-md-caps text-text-secondary">
+            Top {top.plazas}
+          </span>
+        </div>
+        <span className="text-label-md text-text-secondary">
+          {elegidos} de {top.plazas} elegidos
+        </span>
+      </div>
+
+      {elegidos === 0 ? (
+        <span className="text-body-sm" style={{ color: "var(--text-idle)" }}>
+          Elegir equipos
+        </span>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {top.seleccionados.map((equipo, i) => (
+            <CirculoTop key={i} equipo={equipo} />
+          ))}
+        </div>
+      )}
+    </Link>
+  );
+}
+
 function Tarjeta({
   titulo,
   icono,
@@ -301,6 +371,7 @@ export function ExtrasCliente({
   jugadores,
   extras,
   secciones,
+  top,
   usuarioId,
   torneoId,
   torneoSlug,
@@ -312,6 +383,8 @@ export function ExtrasCliente({
   /** Lo ya guardado. Null = el usuario todavía no tiene fila. */
   extras: ExtrasGuardados | null;
   secciones: SeccionesExtras;
+  /** Null = el torneo no declara predicción de Top N. */
+  top: TopOpcion | null;
   usuarioId: string;
   torneoId: number;
   torneoSlug: string;
@@ -374,12 +447,14 @@ export function ExtrasCliente({
     goleadorId != null ? jugadorPorId.get(goleadorId) ?? null : null;
 
   const activas = [
+    top != null,
     secciones.campeon,
     secciones.subcampeon,
     secciones.goleador,
   ].filter(Boolean).length;
 
   const elegidas = [
+    top != null && top.seleccionados.every((e) => e != null),
     secciones.campeon && campeonId != null,
     secciones.subcampeon && subcampeonId != null,
     secciones.goleador && (goleadorId != null || goleadorNombre != null),
@@ -508,13 +583,15 @@ export function ExtrasCliente({
         decididas y completar el resto más adelante.
       </p>
 
+      {top && <TarjetaTop torneoSlug={torneoSlug} top={top} />}
+
       {secciones.campeon && (
         <Tarjeta
           titulo="Campeón"
           icono={
             <Trophy
-              className="h-[16px] w-[16px] flex-shrink-0"
-              style={{ color: "var(--icons-primary)" }}
+              className="h-[18px] w-[18px] flex-shrink-0"
+              style={{ color: "var(--icons-secondary)" }}
             />
           }
           vacio="Elegir equipo"
@@ -536,8 +613,8 @@ export function ExtrasCliente({
           titulo="Subcampeón"
           icono={
             <Medal
-              className="h-[16px] w-[16px] flex-shrink-0"
-              style={{ color: "var(--podium-silver)" }}
+              className="h-[18px] w-[18px] flex-shrink-0"
+              style={{ color: "var(--icons-secondary)" }}
             />
           }
           vacio="Elegir equipo"
@@ -558,9 +635,9 @@ export function ExtrasCliente({
         <Tarjeta
           titulo="Goleador"
           icono={
-            <Target
-              className="h-[16px] w-[16px] flex-shrink-0"
-              style={{ color: "var(--icons-primary)" }}
+            <Volleyball
+              className="h-[18px] w-[18px] flex-shrink-0"
+              style={{ color: "var(--icons-secondary)" }}
             />
           }
           vacio="Buscar jugador"
