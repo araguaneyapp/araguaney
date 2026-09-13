@@ -359,7 +359,7 @@ export function ClasificadosCliente({
     <main className="min-h-screen px-5 pb-6">
       <ScreenHeader
         title={`Top ${plazas}`}
-        backHref={`/${torneoSlug}/quiniela`}
+        backHref={`/${torneoSlug}/quiniela/extras`}
         right={
           <span className="text-label-md text-text-secondary">
             {elegidos} de {plazas}
