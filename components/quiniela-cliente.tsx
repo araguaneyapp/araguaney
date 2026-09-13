@@ -1,12 +1,25 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Lock, Check } from "lucide-react";
+import Link from "next/link";
+import {
+  Plus,
+  Minus,
+  Lock,
+  Check,
+  ChevronRight,
+  ListOrdered,
+  Trophy,
+} from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
-import { esIdaVuelta, type ConfigTorneo } from "@/lib/config-torneo";
+import {
+  esIdaVuelta,
+  plazasClasificacion,
+  type ConfigTorneo,
+} from "@/lib/config-torneo";
 import { ahoraMs } from "@/lib/tiempo";
 
 type EquipoQuiniela = EquipoEscudo & { id: number };
@@ -269,11 +282,65 @@ function TarjetaPartido({
   );
 }
 
+/** "Campeón, subcampeón y goleador", con solo los extras que el torneo tenga. */
+function detalleExtras(config: ConfigTorneo) {
+  const partes = [
+    config.extras.campeon ? "campeón" : null,
+    config.extras.subcampeon ? "subcampeón" : null,
+    config.extras.goleador ? "goleador" : null,
+  ].filter((p): p is string => p !== null);
+
+  const texto =
+    partes.length <= 1
+      ? partes[0] ?? ""
+      : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/** Puerta a una pantalla de predicción de todo el torneo (Top N, extras). */
+function AccesoPrediccion({
+  href,
+  icono,
+  titulo,
+  detalle,
+}: {
+  href: string;
+  icono: React.ReactNode;
+  titulo: string;
+  detalle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl bg-surface-card p-4"
+    >
+      <span
+        className="flex h-[36px] w-[36px] flex-shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: "var(--accent-subtle)" }}
+      >
+        {icono}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-body-md leading-tight">{titulo}</span>
+        <span className="mt-px block text-label-md text-text-secondary">
+          {detalle}
+        </span>
+      </span>
+      <ChevronRight
+        className="h-[18px] w-[18px] flex-shrink-0"
+        style={{ color: "var(--icons-secondary)" }}
+      />
+    </Link>
+  );
+}
+
 export function QuinielaCliente({
   partidos,
   jornadas,
   usuarioId,
   torneoId,
+  torneoSlug,
   config,
   ahoraServidor,
 }: {
@@ -281,6 +348,7 @@ export function QuinielaCliente({
   jornadas: Jornada[];
   usuarioId: string;
   torneoId: number;
+  torneoSlug: string;
   config: ConfigTorneo;
   /** Hora del servidor al renderizar, para que SSR y cliente coincidan. */
   ahoraServidor: number;
@@ -298,6 +366,16 @@ export function QuinielaCliente({
     setAviso({ tipo, texto });
     setTimeout(() => setAviso(null), 4000);
   };
+
+  /*
+   * Accesos a las pantallas de predicción de todo el torneo. Cada uno aparece
+   * solo si el torneo lo declara: uno sin extras no debe mostrar la puerta a
+   * una pantalla que no aplica.
+   */
+  const plazas = plazasClasificacion(config);
+  const hayTop = Boolean(config.prediccionClasificacion.tipo && plazas);
+  const hayExtras =
+    config.extras.campeon || config.extras.subcampeon || config.extras.goleador;
 
   const bloqueRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const barraFasesRef = useRef<HTMLDivElement | null>(null);
@@ -456,20 +534,24 @@ export function QuinielaCliente({
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    const relevante =
-      bloques.find((b) => {
-        const referencia = b.fecha ?? b.partidos[0]?.inicio_utc ?? null;
-        if (!referencia) return false;
-        // `gamedays.fecha` es un DATE (sin hora); inicio_utc es un timestamp.
-        const f = new Date(
-          referencia.length === 10 ? `${referencia}T12:00:00` : referencia
-        );
-        f.setHours(0, 0, 0, 0);
-        return f >= hoy;
-      }) ?? null;
+    const indice = bloques.findIndex((b) => {
+      const referencia = b.fecha ?? b.partidos[0]?.inicio_utc ?? null;
+      if (!referencia) return false;
+      // `gamedays.fecha` es un DATE (sin hora); inicio_utc es un timestamp.
+      const f = new Date(
+        referencia.length === 10 ? `${referencia}T12:00:00` : referencia
+      );
+      f.setHours(0, 0, 0, 0);
+      return f >= hoy;
+    });
 
-    if (relevante) {
-      const el = bloqueRefs.current[relevante.clave];
+    /*
+     * Solo se baja si hay jornadas por delante que saltarse. Cuando la
+     * relevante ya es la primera —al arrancar el torneo— bajar hasta ella no
+     * adelanta nada y esconde la cabecera y el acceso al Top N.
+     */
+    if (indice > 0) {
+      const el = bloqueRefs.current[bloques[indice].clave];
       if (el) {
         el.scrollIntoView({ behavior: "auto", block: "start" });
         return;
@@ -521,6 +603,38 @@ export function QuinielaCliente({
           </div>
         }
       />
+
+      {(hayTop || hayExtras) && (
+        <div className="mb-5 flex flex-col gap-3">
+          {hayTop && (
+            <AccesoPrediccion
+              href={`/${torneoSlug}/quiniela/clasificados`}
+              icono={
+                <ListOrdered
+                  className="h-[18px] w-[18px]"
+                  style={{ color: "var(--icons-primary)" }}
+                />
+              }
+              titulo={`Top ${plazas} de la fase de liga`}
+              detalle="Predice quiénes clasifican directo"
+            />
+          )}
+
+          {hayExtras && (
+            <AccesoPrediccion
+              href={`/${torneoSlug}/quiniela/extras`}
+              icono={
+                <Trophy
+                  className="h-[18px] w-[18px]"
+                  style={{ color: "var(--icons-primary)" }}
+                />
+              }
+              titulo="Extras"
+              detalle={detalleExtras(config)}
+            />
+          )}
+        </div>
+      )}
 
       {bloques.length === 0 ? (
         <p className="text-body-sm text-text-secondary">

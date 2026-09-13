@@ -68,6 +68,7 @@ export default async function QuinielaPage({
       jornadas={(jornadas ?? []) as Jornada[]}
       usuarioId={usuarioId}
       torneoId={torneo.id}
+      torneoSlug={torneo.slug}
       config={torneo.config}
       ahoraServidor={ahoraMs()}
     />

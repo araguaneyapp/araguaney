@@ -160,3 +160,16 @@ export function ordenarFases(
       (orden.get(b) ?? Number.MAX_SAFE_INTEGER)
   );
 }
+
+/**
+ * Cuántos puestos se predicen en la clasificación.
+ *
+ * Sale de `prediccion_clasificacion.tipo` ("top8" -> 8) y, si ese dato no
+ * viene con esa forma, del corte de clasificación directa. Así el número de
+ * casillas de la pantalla es un dato del torneo, no una constante.
+ */
+export function plazasClasificacion(config: ConfigTorneo): number | null {
+  const coincide = config.prediccionClasificacion.tipo?.match(/^top(\d+)$/);
+  if (coincide) return Number(coincide[1]);
+  return config.cortesClasificacion.directo;
+}
