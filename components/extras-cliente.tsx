@@ -1,233 +1,692 @@
 "use client";
 
-import { useState } from "react";
-import { Flag } from "@/components/flag";
+import { useState, useEffect, useMemo } from "react";
+import { Check, Lock, Medal, Search, Target, Trophy, X } from "lucide-react";
+import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
-import { ChevronDown, Check, Lock, Trophy, Medal, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
+import { coincide } from "@/lib/texto";
+import { ahoraMs } from "@/lib/tiempo";
 
-type Equipo = { id: number; nombre: string; codigo_iso: string };
-type Extras = {
+export type EquipoOpcion = EquipoEscudo & { id: number };
+
+export type JugadorOpcion = {
+  id: number;
+  nombre: string;
+  nombre_corto: string | null;
+  posicion: string | null;
+  equipo: EquipoEscudo | null;
+};
+
+export type ExtrasGuardados = {
   campeon_id: number | null;
   subcampeon_id: number | null;
+  goleador_id: number | null;
   goleador_nombre: string | null;
-} | null;
+};
 
-function SelectorEquipo({
+/** Qué extras declara el torneo. Una sección en false no se pinta. */
+export type SeccionesExtras = {
+  campeon: boolean;
+  subcampeon: boolean;
+  goleador: boolean;
+};
+
+type Ranura = "campeon" | "subcampeon" | "goleador";
+
+function fechaLarga(iso: string) {
+  const f = new Date(iso);
+  const dia = f.toLocaleDateString("es", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
+  const hora = f.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  return `${dia.charAt(0).toUpperCase() + dia.slice(1)}, ${hora}`;
+}
+
+/**
+ * Hoja inferior con buscador, igual que la del Top 8.
+ *
+ * La hoja solo pone el marco y la caja de búsqueda; quien la usa decide qué
+ * lista pinta y cómo compara, y recibe la consulta tal como se escribió.
+ */
+function Hoja({
+  titulo,
+  placeholder,
+  onCerrar,
+  children,
+}: {
+  titulo: string;
+  placeholder: string;
+  onCerrar: () => void;
+  children: (consulta: string) => React.ReactNode;
+}) {
+  const [busqueda, setBusqueda] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+      <button
+        aria-label="Cerrar"
+        onClick={onCerrar}
+        className="absolute inset-0"
+        style={{ backgroundColor: "var(--overlay-scrim)", opacity: 0.6 }}
+      />
+
+      <div
+        className="relative mb-20 flex max-h-[calc(78vh-5rem)] flex-col rounded-t-2xl bg-surface-card"
+        style={{ borderTop: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center justify-between px-5 pb-3 pt-5">
+          <h2 className="text-heading-md">{titulo}</h2>
+          <button onClick={onCerrar} className="flex items-center">
+            <X className="h-5 w-5" style={{ color: "var(--icons-secondary)" }} />
+          </button>
+        </div>
+
+        <div className="px-5 pb-3">
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ backgroundColor: "var(--surface-input)" }}
+          >
+            <Search
+              className="h-4 w-4 flex-shrink-0"
+              style={{ color: "var(--icons-secondary)" }}
+            />
+            <input
+              autoFocus
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder={placeholder}
+              className="w-full bg-transparent text-body-sm outline-none"
+              style={{ color: "var(--text-primary)" }}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 pb-6">
+          {children(busqueda)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SinResultados({ texto }: { texto: string }) {
+  return (
+    <p className="py-6 text-center text-body-sm text-text-secondary">{texto}</p>
+  );
+}
+
+function Insignia({ texto }: { texto: string }) {
+  return (
+    <span
+      className="flex-shrink-0 rounded-full px-2 py-px text-label-xs"
+      style={{
+        backgroundColor: "var(--surface-input)",
+        color: "var(--text-secondary)",
+      }}
+    >
+      {texto}
+    </span>
+  );
+}
+
+function ListaEquipos({
+  equipos,
+  busqueda,
+  seleccionado,
+  ocupado,
+  onElegir,
+}: {
+  equipos: EquipoOpcion[];
+  busqueda: string;
+  seleccionado: number | null;
+  /** Equipo tomado por la otra ranura: campeón y subcampeón son distintos. */
+  ocupado: { id: number; etiqueta: string } | null;
+  onElegir: (id: number) => void;
+}) {
+  const filtrados = equipos.filter((e) => coincide(busqueda, [e.nombre]));
+
+  if (filtrados.length === 0) {
+    return <SinResultados texto="Ningún equipo coincide." />;
+  }
+
+  return (
+    <>
+      {filtrados.map((equipo) => {
+        const bloqueado = ocupado?.id === equipo.id;
+
+        return (
+          <button
+            key={equipo.id}
+            disabled={bloqueado}
+            onClick={() => onElegir(equipo.id)}
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left"
+            style={{ opacity: bloqueado ? 0.4 : 1 }}
+          >
+            <Escudo equipo={equipo} size={24} />
+            <span className="min-w-0 flex-1 truncate text-body-sm">
+              {equipo.nombre}
+            </span>
+            {bloqueado && <Insignia texto={ocupado.etiqueta} />}
+            {equipo.id === seleccionado && (
+              <Check
+                className="h-4 w-4 flex-shrink-0"
+                style={{ color: "var(--accent-default)" }}
+              />
+            )}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function ListaJugadores({
+  jugadores,
+  busqueda,
+  seleccionado,
+  onElegir,
+}: {
+  jugadores: JugadorOpcion[];
+  busqueda: string;
+  seleccionado: number | null;
+  onElegir: (jugador: JugadorOpcion) => void;
+}) {
+  const filtrados = jugadores.filter((j) =>
+    coincide(busqueda, [j.nombre, j.nombre_corto])
+  );
+
+  /*
+   * "No hay plantilla" y "tu búsqueda no coincide" son problemas distintos y
+   * se dicen distinto: con el mismo mensaje, una tabla vacía se lee como si
+   * el buscador estuviera roto.
+   */
+  if (jugadores.length === 0) {
+    return <SinResultados texto="Todavía no hay jugadores cargados en este torneo." />;
+  }
+
+  if (filtrados.length === 0) {
+    return <SinResultados texto="No se encontró ningún jugador." />;
+  }
+
+  return (
+    <>
+      {filtrados.map((jugador) => (
+        <button
+          key={jugador.id}
+          onClick={() => onElegir(jugador)}
+          className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left"
+        >
+          <Escudo equipo={jugador.equipo} size={24} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body-sm">{jugador.nombre}</span>
+            {jugador.equipo && (
+              <span className="mt-px block truncate text-label-md text-text-secondary">
+                {jugador.equipo.nombre}
+              </span>
+            )}
+          </span>
+          {jugador.id === seleccionado && (
+            <Check
+              className="h-4 w-4 flex-shrink-0"
+              style={{ color: "var(--accent-default)" }}
+            />
+          )}
+        </button>
+      ))}
+    </>
+  );
+}
+
+function Tarjeta({
   titulo,
   icono,
-  equipos,
-  seleccionado,
-  excluir,
-  abierto,
-  onToggle,
-  onElegir,
-  bloqueado,
+  vacio,
+  cerrado,
+  hayValor,
+  onAbrir,
+  onVaciar,
+  children,
 }: {
   titulo: string;
   icono: React.ReactNode;
-  equipos: Equipo[];
-  seleccionado: number | null;
-  excluir: number | null;
-  abierto: boolean;
-  onToggle: () => void;
-  onElegir: (id: number) => void;
-  bloqueado: boolean;
+  /** Texto cuando no hay nada elegido y la pantalla sigue abierta. */
+  vacio: string;
+  cerrado: boolean;
+  hayValor: boolean;
+  onAbrir: () => void;
+  onVaciar: () => void;
+  children: React.ReactNode;
 }) {
-  const equipoSel = equipos.find((e) => e.id === seleccionado) ?? null;
-  const lista = equipos.filter((e) => e.id !== excluir);
-
   return (
     <div className="mb-3 rounded-xl bg-surface-card p-4">
-      <button
-        onClick={onToggle}
-        disabled={bloqueado}
-        className="flex w-full items-center justify-between"
-      >
-        <div className="flex items-center gap-2">
-          {icono}
-          <span className="text-body-sm">{titulo}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {equipoSel ? (
-            <div className="flex items-center gap-2">
-              <Flag iso={equipoSel.codigo_iso} size={22} />
-              <span className="text-body-sm">{equipoSel.nombre}</span>
-            </div>
-          ) : (
-            <span className="text-body-sm text-text-secondary">Sin elegir</span>
-          )}
-          {!bloqueado && (
-            <ChevronDown
-              className="h-[17px] w-[17px] transition-transform"
-              style={{
-                color: "var(--icons-secondary)",
-                transform: abierto ? "rotate(180deg)" : "none",
-              }}
-            />
-          )}
-        </div>
-      </button>
+      <div className="mb-3 flex items-center gap-2">
+        {icono}
+        <span className="text-label-md-caps text-text-secondary">{titulo}</span>
+      </div>
 
-      {abierto && !bloqueado && (
-        <div className="mt-3 flex max-h-[280px] flex-col gap-1 overflow-y-auto">
-          {lista.map((equipo) => {
-            const activo = equipo.id === seleccionado;
-            return (
-              <button
-                key={equipo.id}
-                onClick={() => onElegir(equipo.id)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2"
-                style={{
-                  backgroundColor: activo ? "var(--accent-subtle)" : "var(--background)",
-                  border: activo
-                    ? "1px solid var(--accent-default)"
-                    : "1px solid var(--border)",
-                }}
-              >
-                <Flag iso={equipo.codigo_iso} size={20} />
-                <span className="text-body-sm">{equipo.nombre}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        <button
+          disabled={cerrado}
+          onClick={onAbrir}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          {hayValor ? (
+            children
+          ) : (
+            <span className="text-body-sm" style={{ color: "var(--text-idle)" }}>
+              {cerrado ? "Sin elegir" : vacio}
+            </span>
+          )}
+        </button>
+
+        {hayValor && !cerrado && (
+          <button
+            onClick={onVaciar}
+            aria-label={`Quitar ${titulo.toLowerCase()}`}
+            className="flex flex-shrink-0 items-center"
+          >
+            <X className="h-4 w-4" style={{ color: "var(--icons-secondary)" }} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 export function ExtrasCliente({
   equipos,
+  jugadores,
   extras,
+  secciones,
   usuarioId,
-  deadline,
+  torneoId,
+  torneoSlug,
+  cierre,
+  ahoraServidor,
 }: {
-  equipos: Equipo[];
-  extras: Extras;
+  equipos: EquipoOpcion[];
+  jugadores: JugadorOpcion[];
+  /** Lo ya guardado. Null = el usuario todavía no tiene fila. */
+  extras: ExtrasGuardados | null;
+  secciones: SeccionesExtras;
   usuarioId: string;
-  deadline: string | null;
+  torneoId: number;
+  torneoSlug: string;
+  /** Instante en que cierran los extras. Null = sin fecha conocida. */
+  cierre: string | null;
+  ahoraServidor: number;
 }) {
-  const cerrado = deadline != null && new Date(deadline) <= new Date();
+  const [campeonId, setCampeonId] = useState<number | null>(
+    extras?.campeon_id ?? null
+  );
+  const [subcampeonId, setSubcampeonId] = useState<number | null>(
+    extras?.subcampeon_id ?? null
+  );
+  /*
+   * El goleador se lleva por partida doble: el id apunta a `players` y el
+   * nombre es la copia legible. Cuando la API recargue la plantilla los ids
+   * pueden cambiar, y entonces el nombre es lo único que queda en pie.
+   */
+  const [goleadorId, setGoleadorId] = useState<number | null>(
+    extras?.goleador_id ?? null
+  );
+  const [goleadorNombre, setGoleadorNombre] = useState<string | null>(
+    extras?.goleador_nombre ?? null
+  );
 
-  const [campeon, setCampeon] = useState<number | null>(extras?.campeon_id ?? null);
-  const [subcampeon, setSubcampeon] = useState<number | null>(extras?.subcampeon_id ?? null);
-  const [goleador, setGoleador] = useState(extras?.goleador_nombre ?? "");
-  const [abierto, setAbierto] = useState<"campeon" | "subcampeon" | null>(null);
+  const [abierto, setAbierto] = useState<Ranura | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const [bannerVisible, setBannerVisible] = useState(false);
+  const [sucio, setSucio] = useState(false);
+  const [aviso, setAviso] = useState<{ tipo: "ok" | "error"; texto: string } | null>(
+    null
+  );
 
-  const completo =
-    campeon !== null && subcampeon !== null && goleador.trim().length > 0;
+  /*
+   * Misma mecánica que la Quiniela y el Top 8: se arranca con la hora del
+   * servidor para que SSR e hidratación pinten lo mismo, y se refresca sola
+   * para que una pestaña abierta durante horas acabe bloqueándose al llegar
+   * el cierre.
+   */
+  const [ahora, setAhora] = useState(ahoraServidor);
+  useEffect(() => {
+    const id = setInterval(() => setAhora(ahoraMs()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const cerrado = cierre != null && new Date(cierre).getTime() <= ahora;
+
+  const equipoPorId = useMemo(
+    () => new Map(equipos.map((e) => [e.id, e])),
+    [equipos]
+  );
+  const jugadorPorId = useMemo(
+    () => new Map(jugadores.map((j) => [j.id, j])),
+    [jugadores]
+  );
+
+  const campeon = campeonId != null ? equipoPorId.get(campeonId) ?? null : null;
+  const subcampeon =
+    subcampeonId != null ? equipoPorId.get(subcampeonId) ?? null : null;
+  const goleador =
+    goleadorId != null ? jugadorPorId.get(goleadorId) ?? null : null;
+
+  const activas = [
+    secciones.campeon,
+    secciones.subcampeon,
+    secciones.goleador,
+  ].filter(Boolean).length;
+
+  const elegidas = [
+    secciones.campeon && campeonId != null,
+    secciones.subcampeon && subcampeonId != null,
+    secciones.goleador && (goleadorId != null || goleadorNombre != null),
+  ].filter(Boolean).length;
+
+  const mostrarAviso = (tipo: "ok" | "error", texto: string) => {
+    setAviso({ tipo, texto });
+    setTimeout(() => setAviso(null), 4000);
+  };
+
+  const elegirCampeon = (id: number) => {
+    setCampeonId(id);
+    setSucio(true);
+    setAbierto(null);
+  };
+
+  const elegirSubcampeon = (id: number) => {
+    setSubcampeonId(id);
+    setSucio(true);
+    setAbierto(null);
+  };
+
+  const elegirGoleador = (jugador: JugadorOpcion) => {
+    setGoleadorId(jugador.id);
+    setGoleadorNombre(jugador.nombre);
+    setSucio(true);
+    setAbierto(null);
+  };
+
+  const vaciarGoleador = () => {
+    setGoleadorId(null);
+    setGoleadorNombre(null);
+    setSucio(true);
+  };
 
   const guardar = async () => {
-    if (!completo) return;
+    if (cerrado) return;
+
+    /*
+     * Solo se mandan las columnas de las secciones que el torneo declara: en
+     * un upsert de PostgREST una columna ausente conserva su valor previo, así
+     * que un torneo sin goleador nunca pisa el goleador de otro.
+     */
+    const fila: Record<string, unknown> = {
+      usuario_id: usuarioId,
+      tournament_id: torneoId,
+    };
+    if (secciones.campeon) fila.campeon_id = campeonId;
+    if (secciones.subcampeon) fila.subcampeon_id = subcampeonId;
+    if (secciones.goleador) {
+      fila.goleador_id = goleadorId;
+      fila.goleador_nombre = goleadorNombre;
+    }
+
     setGuardando(true);
     const supabase = createClient();
-    const { error } = await supabase.from("special_predictions").upsert(
-      {
-        usuario_id: usuarioId,
-        campeon_id: campeon,
-        subcampeon_id: subcampeon,
-        goleador_nombre: goleador.trim(),
-      },
-      { onConflict: "usuario_id" }
-    );
+
+    const { data, error } = await supabase
+      .from("special_predictions")
+      .upsert(fila, { onConflict: "usuario_id,tournament_id" })
+      .select("id");
+
     setGuardando(false);
 
-    if (!error) {
-      setBannerVisible(true);
-      setTimeout(() => setBannerVisible(false), 3000);
-    } else {
-      alert("Hubo un error al guardar. Intenta de nuevo.");
+    /*
+     * El upsert es un solo statement: si la policy del cierre lo rechaza no
+     * queda nada a medias, la fila guardada sigue como estaba.
+     *
+     * Ese rechazo llega de dos formas distintas y hay que mirar las dos: un
+     * 42501 cuando la fila se inserta, y un update que no alcanza ninguna
+     * fila y vuelve vacío sin error. Un fallo de red, en cambio, no es un
+     * cierre y merece otro mensaje.
+     */
+    if (error || (data?.length ?? 0) === 0) {
+      setAhora(ahoraMs());
+      const porCierre = !error || error.code === "42501";
+      mostrarAviso(
+        "error",
+        porCierre
+          ? "No se pudo guardar: los extras ya están cerrados."
+          : "No se pudo guardar. Vuelve a intentarlo."
+      );
+      return;
     }
+
+    setSucio(false);
+    mostrarAviso("ok", "Guardado");
   };
 
   return (
     <main className="min-h-screen px-5 pb-6">
-      <ScreenHeader title="Tus extras" backHref="/quiniela" />
+      <ScreenHeader
+        title="Extras"
+        backHref={`/${torneoSlug}/quiniela`}
+        right={
+          <span className="text-label-md text-text-secondary">
+            {elegidas} de {activas}
+          </span>
+        }
+      />
 
-      {cerrado && (
+      {cerrado ? (
         <div
           className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-label-md"
-          style={{ backgroundColor: "var(--feedback-danger-surface)", color: "var(--feedback-danger)" }}
+          style={{
+            backgroundColor: "var(--feedback-danger-surface)",
+            color: "var(--feedback-danger)",
+          }}
         >
-          <Lock className="h-4 w-4" />
+          <Lock className="h-4 w-4 flex-shrink-0" />
           Las predicciones extras ya están cerradas.
         </div>
+      ) : (
+        cierre && (
+          <div className="mb-4 rounded-xl bg-surface-card px-4 py-3">
+            <div className="text-label-md text-text-secondary">
+              Puedes editar hasta
+            </div>
+            <div className="text-body-md-bold">{fechaLarga(cierre)}</div>
+          </div>
+        )
       )}
 
-      <SelectorEquipo
-        titulo="Campeón"
-        icono={<Trophy className="h-[18px] w-[18px]" style={{ color: "var(--icons-primary)" }} />}
-        equipos={equipos}
-        seleccionado={campeon}
-        excluir={subcampeon}
-        abierto={abierto === "campeon"}
-        onToggle={() => setAbierto(abierto === "campeon" ? null : "campeon")}
-        onElegir={(id) => {
-          setCampeon(id);
-          setAbierto(null);
-        }}
-        bloqueado={cerrado}
-      />
+      <p className="mb-4 text-body-sm text-text-secondary">
+        Predicciones de todo el torneo. Puedes guardar solo las que tengas
+        decididas y completar el resto más adelante.
+      </p>
 
-      <SelectorEquipo
-        titulo="Subcampeón"
-        icono={<Medal className="h-[18px] w-[18px]" style={{ color: "var(--podium-silver)" }} />}
-        equipos={equipos}
-        seleccionado={subcampeon}
-        excluir={campeon}
-        abierto={abierto === "subcampeon"}
-        onToggle={() => setAbierto(abierto === "subcampeon" ? null : "subcampeon")}
-        onElegir={(id) => {
-          setSubcampeon(id);
-          setAbierto(null);
-        }}
-        bloqueado={cerrado}
-      />
-
-      <div className="mb-3 rounded-xl bg-surface-card p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <Target className="h-[18px] w-[18px]" style={{ color: "var(--icons-primary)" }} />
-          <span className="text-body-sm">Goleador</span>
-        </div>
-        <input
-          type="text"
-          value={goleador}
-          onChange={(e) => setGoleador(e.target.value)}
-          disabled={cerrado}
-          placeholder="Nombre del jugador"
-          className="w-full rounded-lg px-3 py-2 text-body-sm outline-none"
-          style={{
-            backgroundColor: "var(--background)",
-            border: "1px solid var(--border)",
-            color: "var(--text-primary)",
+      {secciones.campeon && (
+        <Tarjeta
+          titulo="Campeón"
+          icono={
+            <Trophy
+              className="h-[16px] w-[16px] flex-shrink-0"
+              style={{ color: "var(--icons-primary)" }}
+            />
+          }
+          vacio="Elegir equipo"
+          cerrado={cerrado}
+          hayValor={campeon != null}
+          onAbrir={() => setAbierto("campeon")}
+          onVaciar={() => {
+            setCampeonId(null);
+            setSucio(true);
           }}
-        />
-      </div>
+        >
+          <Escudo equipo={campeon} size={24} />
+          <span className="truncate text-body-md">{campeon?.nombre}</span>
+        </Tarjeta>
+      )}
+
+      {secciones.subcampeon && (
+        <Tarjeta
+          titulo="Subcampeón"
+          icono={
+            <Medal
+              className="h-[16px] w-[16px] flex-shrink-0"
+              style={{ color: "var(--podium-silver)" }}
+            />
+          }
+          vacio="Elegir equipo"
+          cerrado={cerrado}
+          hayValor={subcampeon != null}
+          onAbrir={() => setAbierto("subcampeon")}
+          onVaciar={() => {
+            setSubcampeonId(null);
+            setSucio(true);
+          }}
+        >
+          <Escudo equipo={subcampeon} size={24} />
+          <span className="truncate text-body-md">{subcampeon?.nombre}</span>
+        </Tarjeta>
+      )}
+
+      {secciones.goleador && (
+        <Tarjeta
+          titulo="Goleador"
+          icono={
+            <Target
+              className="h-[16px] w-[16px] flex-shrink-0"
+              style={{ color: "var(--icons-primary)" }}
+            />
+          }
+          vacio="Buscar jugador"
+          cerrado={cerrado}
+          hayValor={goleador != null || goleadorNombre != null}
+          onAbrir={() => setAbierto("goleador")}
+          onVaciar={vaciarGoleador}
+        >
+          {goleador ? (
+            <>
+              <Escudo equipo={goleador.equipo} size={24} />
+              <span className="min-w-0">
+                <span className="block truncate text-body-md">
+                  {goleador.nombre}
+                </span>
+                {goleador.equipo && (
+                  <span className="mt-px block truncate text-label-md text-text-secondary">
+                    {goleador.equipo.nombre}
+                  </span>
+                )}
+              </span>
+            </>
+          ) : (
+            /*
+             * El id guardado ya no está en `players` (plantilla recargada
+             * desde la API). El nombre de respaldo es justo para esto: se
+             * muestra tal cual, sin escudo, y sigue siendo editable.
+             */
+            <span className="truncate text-body-md">{goleadorNombre}</span>
+          )}
+        </Tarjeta>
+      )}
 
       {!cerrado && (
         <button
-          disabled={!completo || guardando}
+          disabled={!sucio || guardando}
           onClick={guardar}
-          className="mt-2 w-full rounded-lg py-3 text-center text-action-button"
+          className="mt-3 w-full rounded-lg py-3 text-center text-action-button"
           style={{
             backgroundColor: "var(--accent-default)",
             color: "var(--text-on-accent)",
-            opacity: !completo || guardando ? 0.4 : 1,
+            opacity: !sucio || guardando ? 0.4 : 1,
           }}
         >
-          {guardando ? "Guardando..." : "Guardar extras"}
+          {guardando ? "Guardando..." : "Guardar"}
         </button>
       )}
 
-      {bannerVisible && (
-        <div
-          className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-body-md-bold shadow-lg"
-          style={{ backgroundColor: "var(--feedback-success)", color: "var(--text-on-accent)" }}
+      {abierto === "campeon" && (
+        <Hoja
+          titulo="Campeón"
+          placeholder="Buscar equipo"
+          onCerrar={() => setAbierto(null)}
         >
-          <Check className="h-[18px] w-[18px]" />
-          Guardado
+          {(busqueda) => (
+            <ListaEquipos
+              equipos={equipos}
+              busqueda={busqueda}
+              seleccionado={campeonId}
+              ocupado={
+                subcampeonId != null
+                  ? { id: subcampeonId, etiqueta: "Subcampeón" }
+                  : null
+              }
+              onElegir={elegirCampeon}
+            />
+          )}
+        </Hoja>
+      )}
+
+      {abierto === "subcampeon" && (
+        <Hoja
+          titulo="Subcampeón"
+          placeholder="Buscar equipo"
+          onCerrar={() => setAbierto(null)}
+        >
+          {(busqueda) => (
+            <ListaEquipos
+              equipos={equipos}
+              busqueda={busqueda}
+              seleccionado={subcampeonId}
+              ocupado={
+                campeonId != null
+                  ? { id: campeonId, etiqueta: "Campeón" }
+                  : null
+              }
+              onElegir={elegirSubcampeon}
+            />
+          )}
+        </Hoja>
+      )}
+
+      {abierto === "goleador" && (
+        <Hoja
+          titulo="Goleador del torneo"
+          placeholder="Buscar jugador"
+          onCerrar={() => setAbierto(null)}
+        >
+          {(busqueda) => (
+            <ListaJugadores
+              jugadores={jugadores}
+              busqueda={busqueda}
+              seleccionado={goleadorId}
+              onElegir={elegirGoleador}
+            />
+          )}
+        </Hoja>
+      )}
+
+      {aviso && (
+        <div
+          className="fixed bottom-24 left-1/2 z-50 flex max-w-[calc(100%-36px)] -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-center text-body-md-bold shadow-lg"
+          style={
+            aviso.tipo === "ok"
+              ? {
+                  backgroundColor: "var(--feedback-success)",
+                  color: "var(--text-on-accent)",
+                }
+              : {
+                  backgroundColor: "var(--feedback-danger-surface)",
+                  color: "var(--feedback-danger)",
+                }
+          }
+        >
+          {aviso.tipo === "ok" && <Check className="h-[18px] w-[18px]" />}
+          {aviso.texto}
         </div>
       )}
     </main>
