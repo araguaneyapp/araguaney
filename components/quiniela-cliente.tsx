@@ -4,15 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Minus, Lock, Check, Trophy } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
+import { TarjetaPartido as TarjetaSoloLectura } from "@/components/tarjeta-partido";
 import { createClient } from "@/lib/supabase-browser";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import {
   esIdaVuelta,
+  formatoDeFase,
   plazasClasificacion,
   type ConfigTorneo,
 } from "@/lib/config-torneo";
 import { ahoraMs } from "@/lib/tiempo";
 import { claveDia, tituloDia, horaLocal } from "@/lib/fechas";
+import { llavesPlaceholder } from "@/lib/llaves-placeholder";
 import { AccesoPrediccion } from "@/components/acceso-prediccion";
 
 type EquipoQuiniela = EquipoEscudo & {
@@ -534,8 +537,18 @@ export function QuinielaCliente({
         }
       />
 
-      {(hayTop || hayExtras) && (
-        <div className="mb-5">
+      {/*
+        Solo en la fase de liga: en las eliminatorias ya no se puede tocar
+        ni el Top N ni los extras, así que la puerta a esa pantalla no
+        aporta nada ahí. Queda anclada bajo la cabecera (mismo offset que
+        usa Tabla) para que no se pierda al bajar por el listado de
+        partidos.
+      */}
+      {(hayTop || hayExtras) && formatoDeFase(config, faseActiva) === "puntos" && (
+        <div
+          className="sticky z-20 -mx-5 mb-5 bg-background px-5 pb-3"
+          style={{ top: "calc(var(--layout-header-nav) - 24px)", paddingTop: "24px" }}
+        >
           <h2 className="mb-3 text-heading-md">Tus extras</h2>
           <AccesoPrediccion
             href={`/${torneoSlug}/quiniela/extras`}
@@ -559,9 +572,38 @@ export function QuinielaCliente({
       )}
 
       {bloques.length === 0 ? (
-        <p className="text-body-sm text-text-secondary">
-          No hay partidos en esta fase todavía.
-        </p>
+        (() => {
+          const llaves = llavesPlaceholder(
+            faseActiva,
+            faseActiva === config.fases[config.fases.length - 1]
+          );
+
+          if (llaves.length === 0) {
+            return (
+              <p className="text-body-sm text-text-secondary">
+                No hay partidos en esta fase todavía.
+              </p>
+            );
+          }
+
+          // Sin sorteo no hay nada que pronosticar: se ve el cuadro, sin
+          // steppers para marcar un resultado que todavía no tiene equipos.
+          return llaves.map((llave, i) => (
+            <TarjetaSoloLectura
+              key={i}
+              meta="Información no disponible"
+              finalizado={false}
+              local={null}
+              visitante={null}
+              nombreLocal={llave.local}
+              nombreVisitante={llave.visitante}
+              marcador={null}
+              hora="Por definir"
+              detalleInstancia={null}
+              placeholder
+            />
+          ));
+        })()
       ) : (
         bloques.map((bloque) => {
           const etiquetaEstado = bloque.estado
