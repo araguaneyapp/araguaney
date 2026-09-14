@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ShieldQuestionMark } from "lucide-react";
 
 export type EquipoEscudo = {
   nombre: string;
@@ -10,10 +11,11 @@ export type EquipoEscudo = {
 /**
  * Identidad visual de un equipo, con respaldos en cascada:
  *
- *   1. logo_url    → escudo del club
- *   2. codigo_iso  → bandera de /public/flags (selecciones)
- *   3. abreviatura → círculo con las iniciales
- *   4. nada        → círculo gris (partido por definir)
+ *   1. placeholder → escudo con "?" (llave todavía sin sorteo)
+ *   2. logo_url    → escudo del club
+ *   3. codigo_iso  → bandera de /public/flags (selecciones)
+ *   4. abreviatura → círculo con las iniciales
+ *   5. nada        → círculo gris (partido por definir)
  *
  * Así el mismo componente sirve a un torneo de clubes y a uno de selecciones
  * sin saber de cuál se trata.
@@ -21,10 +23,26 @@ export type EquipoEscudo = {
 export function Escudo({
   equipo,
   size = 20,
+  placeholder = false,
 }: {
   equipo: EquipoEscudo | null;
   size?: number;
+  /** El equipo todavía no se conoce (llave sin sortear), no que falte cargar el dato. */
+  placeholder?: boolean;
 }) {
+  if (placeholder) {
+    return (
+      <span
+        className="inline-flex flex-shrink-0 items-center justify-center rounded-full"
+        style={{ width: size, height: size, backgroundColor: "var(--border)" }}
+      >
+        <ShieldQuestionMark
+          style={{ width: size * 0.65, height: size * 0.65, color: "var(--icons-secondary)" }}
+        />
+      </span>
+    );
+  }
+
   if (equipo?.logo_url) {
     return (
       <span

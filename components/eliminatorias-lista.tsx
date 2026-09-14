@@ -82,6 +82,45 @@ function estaJugado(p: PartidoLlave) {
   return p.status === "finished" || p.status === "published";
 }
 
+type LlavePlaceholder = { local: string; visitante: string };
+
+/**
+ * Nombres temporales de las llaves de una fase que todavía no tiene sorteo.
+ * Es contenido fijo del formato de esta Champions (16 equipos a playoff, 8
+ * directos a octavos): un torneo con otro cuadro necesitaría ajustar esto,
+ * no sale del config.
+ */
+function llavesPlaceholder(fase: string, esFinal: boolean): LlavePlaceholder[] {
+  if (esFinal) {
+    return [{ local: "Ganadores SF-1", visitante: "Ganadores SF-2" }];
+  }
+  if (fase === "preliminar") {
+    return Array.from({ length: 8 }, () => ({
+      local: "Clasificados Play-Off",
+      visitante: "Clasificados Play-Off",
+    }));
+  }
+  if (fase === "octavos") {
+    return Array.from({ length: 8 }, () => ({
+      local: "Ganador del Play-Off",
+      visitante: "Clasificado Top8",
+    }));
+  }
+  if (fase === "cuartos") {
+    return Array.from({ length: 4 }, (_, i) => ({
+      local: `Ganadores OF-${i * 2 + 1}`,
+      visitante: `Ganadores OF-${i * 2 + 2}`,
+    }));
+  }
+  if (fase === "semifinal") {
+    return Array.from({ length: 2 }, (_, i) => ({
+      local: `Ganadores CF-${i * 2 + 1}`,
+      visitante: `Ganadores CF-${i * 2 + 2}`,
+    }));
+  }
+  return [];
+}
+
 function claveDia(inicioUtc: string | null) {
   if (!inicioUtc) return "sin-fecha";
   const f = new Date(inicioUtc);
@@ -547,9 +586,52 @@ export function EliminatoriasLista({
       </div>
 
       {delaFase.length === 0 ? (
-        <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
-          El sorteo de esta fase todavía no está hecho.
-        </p>
+        (() => {
+          const esFinal = faseActiva === ultimaFase;
+          const llaves = llavesPlaceholder(faseActiva, esFinal);
+
+          if (llaves.length === 0) {
+            return (
+              <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
+                El sorteo de esta fase todavía no está hecho.
+              </p>
+            );
+          }
+
+          if (esFinal) {
+            return (
+              <FinalCard
+                className="mb-2"
+                finalizado={false}
+                local={null}
+                visitante={null}
+                nombreLocal={llaves[0].local}
+                nombreVisitante={llaves[0].visitante}
+                marcador={null}
+                hora="Por definir"
+                metaLine="Información no disponible"
+                detalleInstancia={null}
+                placeholder
+              />
+            );
+          }
+
+          return llaves.map((llave, i) => (
+            <TarjetaPartido
+              key={i}
+              meta="Información no disponible"
+              finalizado={false}
+              local={null}
+              visitante={null}
+              nombreLocal={llave.local}
+              nombreVisitante={llave.visitante}
+              marcador={null}
+              hora="Por definir"
+              detalleInstancia={null}
+              placeholder
+            />
+          ));
+        })()
       ) : (
         dias.map((dia) => (
           <div key={dia.clave} className="mb-5">

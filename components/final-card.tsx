@@ -12,6 +12,8 @@ type FinalCardProps = {
   metaLine: string;
   detalleInstancia: { marcador: string; etiqueta: string } | null;
   className?: string;
+  /** La llave todavía no tiene equipos: escudos con "?" en vez de vacíos. */
+  placeholder?: boolean;
   children?: React.ReactNode;
 };
 
@@ -26,6 +28,7 @@ export function FinalCard({
   metaLine,
   detalleInstancia,
   className = "",
+  placeholder = false,
   children,
 }: FinalCardProps) {
   return (
@@ -42,7 +45,7 @@ export function FinalCard({
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-1 flex-col items-center gap-2">
-          <Escudo equipo={local} size={44} />
+          <Escudo equipo={local} size={44} placeholder={placeholder} />
           <span className="text-center text-body-md-bold leading-tight">
             {nombreLocal}
           </span>
@@ -65,7 +68,7 @@ export function FinalCard({
         </div>
 
         <div className="flex flex-1 flex-col items-center gap-2">
-          <Escudo equipo={visitante} size={44} />
+          <Escudo equipo={visitante} size={44} placeholder={placeholder} />
           <span className="text-center text-body-md-bold leading-tight">
             {nombreVisitante}
           </span>

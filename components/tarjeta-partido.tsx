@@ -24,6 +24,7 @@ export function TarjetaPartido({
   atenuarLocal = false,
   atenuarVisitante = false,
   destacada = false,
+  placeholder = false,
   children,
 }: {
   meta: string;
@@ -41,6 +42,8 @@ export function TarjetaPartido({
   atenuarLocal?: boolean;
   atenuarVisitante?: boolean;
   destacada?: boolean;
+  /** La llave todavía no tiene equipos: escudos con "?" en vez de vacíos. */
+  placeholder?: boolean;
   children?: React.ReactNode;
 }) {
   return (
@@ -68,7 +71,7 @@ export function TarjetaPartido({
           className="flex min-w-0 flex-1 items-center gap-2"
           style={{ opacity: atenuarLocal ? 0.45 : 1 }}
         >
-          <Escudo equipo={local} size={20} />
+          <Escudo equipo={local} size={20} placeholder={placeholder} />
           <span className="truncate text-body-sm">{nombreLocal}</span>
         </div>
 
@@ -113,7 +116,7 @@ export function TarjetaPartido({
           <span className="truncate text-right text-body-sm">
             {nombreVisitante}
           </span>
-          <Escudo equipo={visitante} size={20} />
+          <Escudo equipo={visitante} size={20} placeholder={placeholder} />
         </div>
       </div>
 
