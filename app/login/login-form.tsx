@@ -3,15 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import { LogIn, ArrowLeft } from "lucide-react";
+import { LogIn, ArrowLeft, Check } from "lucide-react";
 
 const SEGUNDOS_REENVIO = 120;
 
 export function LoginForm() {
   const router = useRouter();
-  const [paso, setPaso] = useState<"correo" | "codigo">("correo");
+  const [paso, setPaso] = useState<
+    "correo" | "codigo" | "solicitud" | "solicitud-enviada"
+  >("correo");
   const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [nota, setNota] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "verifying" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [segundosRestantes, setSegundosRestantes] = useState(0);
@@ -43,6 +46,29 @@ export function LoginForm() {
     setErrorMsg("");
 
     const supabase = createClient();
+
+    /*
+     * Antes de intentarlo, se pregunta si el correo ya está autorizado: sin
+     * este chequeo, uno no invitado dispara el intento de OTP igual, que la
+     * base rechaza con un error genérico en vez de guiarlo a pedir acceso.
+     */
+    const { data: autorizado, error: errorChequeo } = await supabase.rpc(
+      "correo_autorizado",
+      { correo }
+    );
+
+    if (errorChequeo) {
+      setStatus("error");
+      setErrorMsg("No se pudo verificar el correo. Intenta de nuevo.");
+      return;
+    }
+
+    if (!autorizado) {
+      setStatus("idle");
+      setPaso("solicitud");
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: correo,
       options: {
@@ -51,21 +77,45 @@ export function LoginForm() {
     });
 
     if (error) {
-      if (error.status === 429) {
-        setStatus("error");
-        setErrorMsg(
-          "Demasiados intentos. Espera un momento antes de pedir otro código."
-        );
-      } else {
-        setPaso("codigo");
-        setStatus("idle");
-        setSegundosRestantes(SEGUNDOS_REENVIO);
-      }
-    } else {
-      setPaso("codigo");
-      setStatus("idle");
-      setSegundosRestantes(SEGUNDOS_REENVIO);
+      setStatus("error");
+      setErrorMsg(
+        error.status === 429
+          ? "Demasiados intentos. Espera un momento antes de pedir otro código."
+          : "No se pudo enviar el código. Intenta de nuevo."
+      );
+      return;
     }
+
+    setPaso("codigo");
+    setStatus("idle");
+    setSegundosRestantes(SEGUNDOS_REENVIO);
+  }
+
+  async function enviarSolicitud() {
+    const correo = email.trim().toLowerCase();
+    if (!correo) return;
+    setStatus("sending");
+    setErrorMsg("");
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("access_requests")
+      .insert({ email: correo, nota: nota.trim() || null });
+
+    setStatus("idle");
+
+    /*
+     * El índice único de solicitudes pendientes rechaza una segunda mientras
+     * la primera sigue sin resolver: para quien pregunta, eso no es un error,
+     * es la misma confirmación de "ya la mandaste".
+     */
+    if (error && error.code !== "23505") {
+      setStatus("error");
+      setErrorMsg("No se pudo enviar la solicitud. Intenta de nuevo.");
+      return;
+    }
+
+    setPaso("solicitud-enviada");
   }
 
   async function verificarCodigo() {
@@ -102,9 +152,92 @@ export function LoginForm() {
   function volverACorreo() {
     setPaso("correo");
     setCodigo("");
+    setNota("");
     setStatus("idle");
     setErrorMsg("");
     setSegundosRestantes(0);
+  }
+
+  // Correo no autorizado: pedir acceso en vez de fallar en seco
+  if (paso === "solicitud") {
+    return (
+      <div className="flex w-full max-w-sm flex-col gap-4">
+        <button
+          onClick={volverACorreo}
+          className="flex items-center gap-1 text-body-sm text-text-secondary"
+        >
+          <ArrowLeft className="h-4 w-4" style={{ color: "var(--icons-secondary)" }} />
+          Cambiar correo
+        </button>
+
+        <div className="flex flex-col gap-1">
+          <h2 className="text-heading-xl">Pide acceso</h2>
+          <p className="text-body-sm text-text-secondary">
+            <span className="text-foreground">{email}</span> todavía no está
+            autorizado. Manda una solicitud y el administrador la revisa.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-label-md-caps text-text-secondary">
+            NOTA (OPCIONAL)
+          </label>
+          <input
+            type="text"
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && enviarSolicitud()}
+            placeholder="Ej. quién te invitó"
+            maxLength={140}
+            className="rounded-lg border border-input bg-surface-card px-4 py-3 text-body-sm outline-none focus:border-accent-default"
+          />
+        </div>
+
+        {status === "error" && (
+          <p className="text-label-md text-feedback-danger">{errorMsg}</p>
+        )}
+
+        <button
+          onClick={enviarSolicitud}
+          disabled={status === "sending"}
+          className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-center text-action-button"
+          style={{
+            backgroundColor: "var(--accent-default)",
+            color: "var(--text-on-accent)",
+            opacity: status === "sending" ? 0.4 : 1,
+          }}
+        >
+          {status === "sending" ? "Enviando..." : "Solicitar acceso"}
+        </button>
+      </div>
+    );
+  }
+
+  // Solicitud enviada
+  if (paso === "solicitud-enviada") {
+    return (
+      <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
+        <span
+          className="flex h-14 w-14 items-center justify-center rounded-full"
+          style={{ backgroundColor: "var(--feedback-success-surface)" }}
+        >
+          <Check className="h-7 w-7" style={{ color: "var(--feedback-success)" }} />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-heading-xl">Solicitud enviada</h2>
+          <p className="text-body-sm text-text-secondary">
+            Te avisamos apenas el administrador te dé acceso.
+          </p>
+        </div>
+        <button
+          onClick={volverACorreo}
+          className="text-action-button"
+          style={{ color: "var(--accent-default)" }}
+        >
+          Volver
+        </button>
+      </div>
+    );
   }
 
   // PASO 2: ingresar código
