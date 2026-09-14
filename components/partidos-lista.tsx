@@ -13,7 +13,12 @@ import { FiltroDropdown } from "@/components/filtro-dropdown";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import { esIdaVuelta, ordenarFases, type ConfigTorneo } from "@/lib/config-torneo";
 
-export type EquipoPartido = EquipoEscudo & { id: number };
+export type EquipoPartido = EquipoEscudo & {
+  id: number;
+  /** Solo se usa del local: es la sede por defecto cuando el partido no la anula. */
+  estadio: string | null;
+  ciudad: string | null;
+};
 
 export type { Pronostico };
 
@@ -84,7 +89,17 @@ function metaPartido(p: Partido, config: ConfigTorneo) {
     partes.push(leg);
   }
 
-  if (p.sede) partes.push(p.sede);
+  /*
+   * `sede` es la excepción (partido a cancha neutral); el resto se juega en
+   * la del local, así que a falta de esa excepción se arma con su
+   * estadio/ciudad.
+   */
+  const sede =
+    p.sede ??
+    (p.local?.estadio
+      ? [p.local.estadio, p.local.ciudad].filter(Boolean).join(", ")
+      : null);
+  if (sede) partes.push(sede);
   return partes.join(" · ");
 }
 

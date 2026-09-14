@@ -11,7 +11,7 @@ import {
 } from "@/components/eliminatorias-lista";
 import type { Pronostico } from "@/components/pronosticos-detalle";
 
-const EQUIPO = "id, nombre, abreviatura, logo_url, codigo_iso";
+const EQUIPO = "id, nombre, abreviatura, logo_url, codigo_iso, estadio, ciudad";
 
 function estaJugado(p: PartidoLlave) {
   return p.status === "finished" || p.status === "published";

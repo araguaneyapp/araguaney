@@ -37,8 +37,8 @@ export default async function QuinielaPage({
         sede,
         ref_local,
         ref_visitante,
-        local:teams!equipo_local_id(id, nombre, abreviatura, logo_url, codigo_iso),
-        visitante:teams!equipo_visitante_id(id, nombre, abreviatura, logo_url, codigo_iso),
+        local:teams!equipo_local_id(id, nombre, abreviatura, logo_url, codigo_iso, estadio, ciudad),
+        visitante:teams!equipo_visitante_id(id, nombre, abreviatura, logo_url, codigo_iso, estadio, ciudad),
         predictions(marcador_local, marcador_visitante, usuario_id)
       `
       )

@@ -12,7 +12,12 @@ import {
 import { etiquetaFase } from "@/lib/fases";
 import { formatoDeFase, type ConfigTorneo } from "@/lib/config-torneo";
 
-export type EquipoLlave = EquipoEscudo & { id: number };
+export type EquipoLlave = EquipoEscudo & {
+  id: number;
+  /** Solo se usa del local: es la sede por defecto cuando el partido no la anula. */
+  estadio: string | null;
+  ciudad: string | null;
+};
 
 export type PartidoLlave = {
   id: number;
@@ -310,9 +315,17 @@ function TarjetaEliminatoria({
     partido.equipo_visitante_id != null &&
     partido.equipo_visitante_id !== avanza;
 
-  const meta = [etiquetaFase(partido.fase), partido.sede]
-    .filter(Boolean)
-    .join(" · ");
+  /*
+   * `sede` es la excepción (partido a cancha neutral, como la final); el
+   * resto se juega en la del local, así que a falta de esa excepción se arma
+   * con su estadio/ciudad.
+   */
+  const sedeLeg =
+    partido.sede ??
+    (partido.local?.estadio
+      ? [partido.local.estadio, partido.local.ciudad].filter(Boolean).join(", ")
+      : null);
+  const meta = [etiquetaFase(partido.fase), sedeLeg].filter(Boolean).join(" · ");
 
   // El bloque de la llave va en el último leg, que es donde se resuelve.
   const esUltimoLeg = cruce.partidos[cruce.partidos.length - 1]?.id === partido.id;

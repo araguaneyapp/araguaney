@@ -21,12 +21,7 @@ export function AccesoPrediccion({
       href={href}
       className="flex items-center gap-3 rounded-xl bg-surface-card p-4"
     >
-      <span
-        className="flex h-[36px] w-[36px] flex-shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--accent-subtle)" }}
-      >
-        {icono}
-      </span>
+      {icono}
       <span className="min-w-0 flex-1">
         <span className="block text-body-md leading-tight">{titulo}</span>
         <span className="mt-px block text-label-md text-text-secondary">

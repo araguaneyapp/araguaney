@@ -173,19 +173,3 @@ export function plazasClasificacion(config: ConfigTorneo): number | null {
   if (coincide) return Number(coincide[1]);
   return config.cortesClasificacion.directo;
 }
-
-/** "Campeón, subcampeón y goleador", con solo los extras que el torneo tenga. */
-export function detalleExtras(config: ConfigTorneo): string {
-  const partes = [
-    config.extras.campeon ? "campeón" : null,
-    config.extras.subcampeon ? "subcampeón" : null,
-    config.extras.goleador ? "goleador" : null,
-  ].filter((p): p is string => p !== null);
-
-  const texto =
-    partes.length <= 1
-      ? partes[0] ?? ""
-      : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
-
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-}

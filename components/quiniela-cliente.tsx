@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Lock, Check, ListOrdered, Trophy } from "lucide-react";
+import { Plus, Minus, Lock, Check, Trophy } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
@@ -9,14 +9,18 @@ import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import {
   esIdaVuelta,
   plazasClasificacion,
-  detalleExtras,
   type ConfigTorneo,
 } from "@/lib/config-torneo";
 import { ahoraMs } from "@/lib/tiempo";
 import { claveDia, tituloDia, horaLocal } from "@/lib/fechas";
 import { AccesoPrediccion } from "@/components/acceso-prediccion";
 
-type EquipoQuiniela = EquipoEscudo & { id: number };
+type EquipoQuiniela = EquipoEscudo & {
+  id: number;
+  /** Solo se usa del local: es la sede por defecto cuando el partido no la anula. */
+  estadio: string | null;
+  ciudad: string | null;
+};
 
 type PrediccionPropia = {
   marcador_local: number;
@@ -180,10 +184,20 @@ function TarjetaPartido({
   onCambio: (lado: "local" | "visitante", delta: number) => void;
 }) {
   const leg = etiquetaLeg(partido.leg);
+  /*
+   * `matches.sede` es la excepción (una final a partido único en cancha
+   * neutral); el resto de los partidos se juegan en la del local, así que a
+   * falta de esa excepción se arma con el estadio/ciudad del equipo local.
+   */
+  const sede =
+    partido.sede ??
+    (partido.local?.estadio
+      ? [partido.local.estadio, partido.local.ciudad].filter(Boolean).join(", ")
+      : null);
   const meta = [
     horaLocal(partido.inicio_utc),
     leg && esIdaVuelta(config, partido.fase) ? leg : null,
-    partido.sede,
+    sede,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -521,34 +535,26 @@ export function QuinielaCliente({
       />
 
       {(hayTop || hayExtras) && (
-        <div className="mb-5 flex flex-col gap-3">
-          {hayTop && (
-            <AccesoPrediccion
-              href={`/${torneoSlug}/quiniela/clasificados`}
-              icono={
-                <ListOrdered
-                  className="h-[18px] w-[18px]"
-                  style={{ color: "var(--icons-primary)" }}
-                />
-              }
-              titulo={`Top ${plazas} de la fase de liga`}
-              detalle="Predice quiénes clasifican directo"
-            />
-          )}
-
-          {hayExtras && (
-            <AccesoPrediccion
-              href={`/${torneoSlug}/quiniela/extras`}
-              icono={
-                <Trophy
-                  className="h-[18px] w-[18px]"
-                  style={{ color: "var(--icons-primary)" }}
-                />
-              }
-              titulo="Extras"
-              detalle={detalleExtras(config)}
-            />
-          )}
+        <div className="mb-5">
+          <h2 className="mb-3 text-heading-md">Tus extras</h2>
+          <AccesoPrediccion
+            href={`/${torneoSlug}/quiniela/extras`}
+            icono={
+              <Trophy
+                className="h-[18px] w-[18px] flex-shrink-0"
+                style={{ color: "var(--icons-secondary)" }}
+              />
+            }
+            titulo="Extras"
+            detalle={`Elige tu ${[
+              hayTop ? `Top${plazas} Clasificados` : null,
+              config.extras.campeon ? "Campeón" : null,
+              config.extras.subcampeon ? "Subcampeón" : null,
+              config.extras.goleador ? "Goleador" : null,
+            ]
+              .filter(Boolean)
+              .join(", ")}`}
+          />
         </div>
       )}
 
