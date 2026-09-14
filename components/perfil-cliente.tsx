@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ClipboardList,
   ArrowLeftRight,
+  Trash2,
 } from "lucide-react";
 
 export function PerfilCliente({
@@ -38,6 +39,10 @@ export function PerfilCliente({
   const [saliendo, setSaliendo] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
 
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+
   const [nombreActual, setNombreActual] = useState(nombre);
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(nombre);
@@ -49,6 +54,28 @@ export function PerfilCliente({
   const cerrarSesion = async () => {
     setSaliendo(true);
     const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  /*
+   * No es un DELETE de cliente: llama a una función SECURITY DEFINER que
+   * anonimiza (nombre genérico, sin email) en vez de borrar filas. Eso deja
+   * intactas las predicciones y el ranking, que son de todos, no solo de
+   * quien se va.
+   */
+  const eliminarCuenta = async () => {
+    setEliminando(true);
+    setErrorBorrado(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("eliminar_cuenta");
+
+    if (error) {
+      setEliminando(false);
+      setErrorBorrado("No se pudo eliminar la cuenta. Intenta de nuevo.");
+      return;
+    }
+
     await supabase.auth.signOut();
     router.push("/login");
   };
@@ -124,8 +151,8 @@ export function PerfilCliente({
         </div>
       </div>
 
-      <div className="mb-2 text-label-md-caps text-text-secondary">
-        CUENTA
+      <div className="mb-2 text-heading-md">
+        Cuenta
       </div>
       <div className="mb-5 rounded-xl bg-surface-card">
         <button
@@ -140,8 +167,8 @@ export function PerfilCliente({
         </button>
       </div>
 
-      <div className="mb-2 text-label-md-caps text-text-secondary">
-        EL JUEGO
+      <div className="mb-2 text-heading-md">
+        El juego
       </div>
       <div className="mb-5 rounded-xl bg-surface-card">
         <Link
@@ -156,8 +183,8 @@ export function PerfilCliente({
         </Link>
       </div>
 
-      <div className="mb-2 text-label-md-caps text-text-secondary">
-        COMPETICIÓN
+      <div className="mb-2 text-heading-md">
+        Torneos
       </div>
       <div className="mb-5 rounded-xl bg-surface-card">
         <Link href="/" className="flex w-full items-center justify-between px-4 py-4">
@@ -171,8 +198,8 @@ export function PerfilCliente({
 
       {esAdmin && (
         <>
-          <div className="mb-2 text-label-md-caps text-text-secondary">
-            ADMINISTRACIÓN
+          <div className="mb-2 text-heading-md">
+            Administración
           </div>
           {/*
             Apagada a propósito: la pantalla de admin todavía escribe contra el
@@ -203,6 +230,15 @@ export function PerfilCliente({
       >
         <LogOut className="h-[17px] w-[17px]" />
         Cerrar sesión
+      </button>
+
+      <button
+        onClick={() => setConfirmandoBorrado(true)}
+        className="mt-5 flex w-full items-center justify-center gap-1 text-action-button"
+        style={{ color: "var(--feedback-danger)" }}
+      >
+        <Trash2 className="h-[17px] w-[17px]" style={{ color: "var(--icons-error)" }} />
+        Eliminar cuenta
       </button>
 
       {editando && (
@@ -299,6 +335,60 @@ export function PerfilCliente({
                 }}
               >
                 {saliendo ? "Saliendo..." : "Salir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmandoBorrado && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-8"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          onClick={() => !eliminando && setConfirmandoBorrado(false)}
+        >
+          <div
+            className="w-full max-w-[300px] rounded-2xl p-5"
+            style={{ backgroundColor: "var(--surface-card)", border: "1px solid var(--border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-center text-heading-md">¿Seguro?</h3>
+            <p className="mt-1 text-center text-body-sm text-text-secondary">
+              Esto es irreversible. Tu nombre y correo se eliminan, y no vas a
+              poder volver a entrar a tu cuenta.
+            </p>
+            {errorBorrado && (
+              <p
+                className="mt-2 text-center text-body-sm"
+                style={{ color: "var(--feedback-danger)" }}
+              >
+                {errorBorrado}
+              </p>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setConfirmandoBorrado(false)}
+                disabled={eliminando}
+                className="flex-1 rounded-lg py-3 text-action-button"
+                style={{
+                  backgroundColor: "var(--background)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={eliminarCuenta}
+                disabled={eliminando}
+                className="flex-1 rounded-lg py-3 text-action-button"
+                style={{
+                  backgroundColor: "var(--feedback-danger)",
+                  color: "var(--text-primary)",
+                  opacity: eliminando ? 0.6 : 1,
+                }}
+              >
+                {eliminando ? "Eliminando..." : "Eliminar cuenta"}
               </button>
             </div>
           </div>
