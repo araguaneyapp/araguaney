@@ -34,7 +34,8 @@ type HookPayload = {
   email_data: EmailData;
 };
 
-const REMITENTE = "onboarding@resend.dev"; // cambiar cuando haya dominio propio
+const REMITENTE = Deno.env.get("EMAIL_REMITENTE") ?? "onboarding@resend.dev";
+const URL_APP = Deno.env.get("APP_URL") ?? "https://araguaney-quiniela.vercel.app";
 
 Deno.serve(async (req) => {
   const payload = await req.text();
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#1F1F1F;border:1px solid #2A2A2A;border-radius:16px;overflow:hidden;">
         <tr>
           <td align="center" style="background-color:#161616;padding:32px 0;">
-            <img src="https://araguaney-quiniela.vercel.app/logo/logo_araguaney_email.png" alt="Araguaney Quiniela" width="140" style="display:block;width:140px;max-width:60%;height:auto;">
+            <img src="${URL_APP}/logo/logo_araguaney_email.png" alt="Araguaney Quiniela" width="140" style="display:block;width:140px;max-width:60%;height:auto;">
           </td>
         </tr>
         <tr>

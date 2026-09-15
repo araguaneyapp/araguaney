@@ -8,8 +8,8 @@
 //   RESEND_API_KEY
 //   ADMIN_NOTIFY_EMAIL - a quién avisarle las solicitudes nuevas
 
-const REMITENTE = "onboarding@resend.dev"; // cambiar cuando haya dominio propio
-const URL_APP = "https://araguaney-quiniela.vercel.app"; // ajustar si cambia
+const REMITENTE = Deno.env.get("EMAIL_REMITENTE") ?? "onboarding@resend.dev";
+const URL_APP = Deno.env.get("APP_URL") ?? "https://araguaney-quiniela.vercel.app";
 
 type Payload =
   | { tipo: "nueva"; email_solicitante: string; nota: string | null }
