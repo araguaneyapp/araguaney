@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.BACKUP.tsx
+
+# supabase CLI (metadata local del link, no del proyecto)
+supabase/.temp/

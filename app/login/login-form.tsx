@@ -138,7 +138,7 @@ export function LoginForm() {
 
     if (error) {
       setStatus("error");
-      if (error.message.toLowerCase().includes("expired")) {
+      if (error.code === "otp_expired") {
         setErrorMsg("El código expiró. Pide uno nuevo.");
       } else {
         setErrorMsg("Código incorrecto. Revísalo o pide uno nuevo.");
