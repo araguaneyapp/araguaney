@@ -221,7 +221,7 @@ export function PerfilCliente({
 
           <div className="mb-5 rounded-xl bg-surface-card">
             <Link
-              href="/perfil/admin/solicitudes"
+              href={`/perfil/admin/solicitudes?desde=${torneoSlug}`}
               className="flex w-full items-center justify-between px-4 py-4"
             >
               <div className="flex items-center gap-3">

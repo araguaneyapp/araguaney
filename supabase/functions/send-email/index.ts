@@ -73,16 +73,35 @@ Deno.serve(async (req) => {
    */
   const asunto = "Tu código de acceso a Araguaney";
   const html = `
-    <div style="font-family: sans-serif; max-width: 420px; margin: 0 auto;">
-      <h2>Tu código de acceso</h2>
-      <p style="font-size: 32px; font-weight: bold; letter-spacing: 4px;">
-        ${emailData.token}
-      </p>
-      <p style="color: #666;">
-        Ingresa este código en Araguaney para entrar. Vence en unos minutos.
-      </p>
-    </div>
-  `;
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#161616;padding:40px 0;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#1F1F1F;border:1px solid #2A2A2A;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td align="center" style="background-color:#161616;padding:32px 0;">
+            <img src="https://araguaney-quiniela.vercel.app/logo/logo_araguaney_email.png" alt="Araguaney Quiniela" width="140" style="display:block;width:140px;max-width:60%;height:auto;">
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 32px;">
+            <h1 style="margin:0 0 16px;color:#F5F5F5;font-size:22px;font-weight:700;">Tu código de acceso</h1>
+            <p style="margin:0 0 28px;color:#B5B5B5;font-size:15px;line-height:1.6;">Ingresa este código en la app para entrar a Araguaney Quiniela. Es de un solo uso y caduca en 15 minutos.</p>
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td align="center" style="border-radius:10px;background-color:#161616;border:1px solid #2A2A2A;padding:20px 36px;">
+                  <span style="display:inline-block;color:#F5C518;font-size:38px;font-weight:700;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">${emailData.token}</span>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:28px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Vuelve a la pantalla donde pediste el código y escríbelo para acceder.</p>
+            <p style="margin:16px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Si no solicitaste este correo, puedes ignorarlo.</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:24px 0 0;color:#8A8A8A;font-size:12px;">Araguaney Quiniela · Mundial 2026</p>
+    </td>
+  </tr>
+</table>`;
 
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",

@@ -23,8 +23,10 @@ function fecha(iso: string) {
 
 export function SolicitudesCliente({
   solicitudes: iniciales,
+  volverA,
 }: {
   solicitudes: Solicitud[];
+  volverA: string;
 }) {
   const [solicitudes, setSolicitudes] = useState(iniciales);
   const [procesando, setProcesando] = useState<number | null>(null);
@@ -50,7 +52,7 @@ export function SolicitudesCliente({
 
   return (
     <main className="min-h-screen px-5 pb-6">
-      <ScreenHeader title="Solicitudes de acceso" backHref="/perfil" />
+      <ScreenHeader title="Solicitudes de acceso" backHref={volverA} />
 
       {solicitudes.length === 0 ? (
         <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">

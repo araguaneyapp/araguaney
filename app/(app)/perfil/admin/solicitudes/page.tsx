@@ -5,7 +5,16 @@ import {
   type Solicitud,
 } from "@/components/solicitudes-cliente";
 
-export default async function SolicitudesPage() {
+export default async function SolicitudesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string }>;
+}) {
+  const { desde } = await searchParams;
+  // Perfil vive por torneo (/[torneo]/perfil); sin saber de cuál se vino,
+  // no hay a dónde volver más que al hub.
+  const volverA = desde ? `/${desde}/perfil` : "/";
+
   const supabase = await createClient();
 
   const {
@@ -19,7 +28,7 @@ export default async function SolicitudesPage() {
     .maybeSingle();
 
   if (!perfil?.es_admin) {
-    redirect("/perfil");
+    redirect(volverA);
   }
 
   const { data } = await supabase
@@ -28,5 +37,10 @@ export default async function SolicitudesPage() {
     .eq("estado", "pendiente")
     .order("creado_en", { ascending: true });
 
-  return <SolicitudesCliente solicitudes={(data ?? []) as Solicitud[]} />;
+  return (
+    <SolicitudesCliente
+      solicitudes={(data ?? []) as Solicitud[]}
+      volverA={volverA}
+    />
+  );
 }
