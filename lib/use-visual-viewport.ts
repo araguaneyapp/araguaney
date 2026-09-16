@@ -15,6 +15,8 @@ export function useVisualViewport() {
   const [medida, setMedida] = useState<{
     height: number;
     offsetTop: number;
+    /** El teclado nativo ocupa una parte visible del alto de la ventana. */
+    tecladoAbierto: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -22,7 +24,12 @@ export function useVisualViewport() {
     if (!viewport) return;
 
     const actualizar = () =>
-      setMedida({ height: viewport.height, offsetTop: viewport.offsetTop });
+      setMedida({
+        height: viewport.height,
+        offsetTop: viewport.offsetTop,
+        // Margen de 150px para no confundir la barra de direcciones con teclado.
+        tecladoAbierto: window.innerHeight - viewport.height > 150,
+      });
 
     actualizar();
     viewport.addEventListener("resize", actualizar);

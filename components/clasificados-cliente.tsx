@@ -68,8 +68,12 @@ function HojaSelector({
       />
 
       <div
-        className="relative mb-20 flex max-h-[calc(78%-5rem)] flex-col rounded-t-2xl bg-surface-card"
-        style={{ borderTop: "1px solid var(--border)" }}
+        className="relative flex flex-col rounded-t-2xl bg-surface-card"
+        style={{
+          borderTop: "1px solid var(--border)",
+          marginBottom: viewport?.tecladoAbierto ? 0 : "5rem",
+          maxHeight: viewport?.tecladoAbierto ? "94%" : "calc(78% - 5rem)",
+        }}
       >
         <div className="flex items-center justify-between px-5 pb-3 pt-5">
           <h2 className="text-heading-md">Equipo para el {ordinal(posicion)}</h2>
