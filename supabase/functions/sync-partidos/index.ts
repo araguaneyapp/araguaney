@@ -84,6 +84,9 @@ Deno.serve(async () => {
     .select("id, api_id, inicio_utc, status")
     .not("api_id", "is", null)
     .not("status", "in", "(finished,published)")
+    // El admin puede cargar un resultado a mano si la API falla; una vez que
+    // lo hace, el sync deja ese partido en paz hasta que lo "devuelva" él.
+    .eq("editado_manual", false)
     .gte("inicio_utc", hoyInicio.toISOString())
     .lt("inicio_utc", hoyFin.toISOString());
 

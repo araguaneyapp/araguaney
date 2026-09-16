@@ -9,10 +9,10 @@ import {
   LogOut,
   Check,
   UserRound,
+  Mail,
   BookOpen,
   ChevronRight,
   ClipboardList,
-  ArrowLeftRight,
   Trash2,
   Inbox,
 } from "lucide-react";
@@ -49,6 +49,20 @@ export function PerfilCliente({
   const [borrador, setBorrador] = useState(nombre);
   const [guardando, setGuardando] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(false);
+
+  /*
+   * Cambio de email en dos pasos: se pide confirmación en el correo NUEVO
+   * antes de aplicarlo. Sin esto, un typo deja a alguien sin forma de volver
+   * a entrar, ya que el login es justamente por código a ese correo.
+   */
+  const [correoActual, setCorreoActual] = useState(correo);
+  const [pasoEmail, setPasoEmail] = useState<"cerrado" | "correo" | "codigo">(
+    "cerrado"
+  );
+  const [nuevoCorreo, setNuevoCorreo] = useState("");
+  const [codigoEmail, setCodigoEmail] = useState("");
+  const [procesandoEmail, setProcesandoEmail] = useState(false);
+  const [errorEmail, setErrorEmail] = useState<string | null>(null);
 
   const inicial = nombreActual.trim().charAt(0).toUpperCase() || "?";
 
@@ -107,35 +121,113 @@ export function PerfilCliente({
     }
   };
 
+  const abrirCambiarEmail = () => {
+    setNuevoCorreo("");
+    setCodigoEmail("");
+    setErrorEmail(null);
+    setPasoEmail("correo");
+  };
+
+  const cerrarCambiarEmail = () => {
+    setPasoEmail("cerrado");
+    setErrorEmail(null);
+  };
+
+  const enviarNuevoCorreo = async () => {
+    const email = nuevoCorreo.trim().toLowerCase();
+    if (!email || email === correoActual) return;
+    setProcesandoEmail(true);
+    setErrorEmail(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ email });
+    setProcesandoEmail(false);
+
+    if (error) {
+      setErrorEmail("No se pudo enviar el código. Intenta de nuevo.");
+      return;
+    }
+
+    setPasoEmail("codigo");
+  };
+
+  const confirmarNuevoCorreo = async () => {
+    const token = codigoEmail.trim();
+    if (token.length !== 6) {
+      setErrorEmail("El código debe tener 6 dígitos.");
+      return;
+    }
+    setProcesandoEmail(true);
+    setErrorEmail(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email: nuevoCorreo.trim().toLowerCase(),
+      token,
+      type: "email_change",
+    });
+    setProcesandoEmail(false);
+
+    if (error) {
+      setErrorEmail(
+        error.code === "otp_expired"
+          ? "El código expiró. Pide uno nuevo."
+          : "Código incorrecto. Revísalo o pide uno nuevo."
+      );
+      return;
+    }
+
+    setCorreoActual(nuevoCorreo.trim().toLowerCase());
+    setPasoEmail("cerrado");
+    setBannerVisible(true);
+    setTimeout(() => setBannerVisible(false), 3000);
+  };
+
   return (
     <main className="min-h-screen px-5 pb-6">
       <ScreenHeader title="Perfil" />
 
-      <div className="mb-6 flex flex-col items-center gap-3 pt-2">
+      <div className="mb-6 flex items-center gap-3 pt-2">
         <div
-          className="flex h-[72px] w-[72px] items-center justify-center rounded-full text-display-lg"
+          className="flex h-[64px] w-[64px] flex-shrink-0 items-center justify-center rounded-full text-display-lg"
           style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
         >
           {inicial}
         </div>
-        <div className="text-center">
-          <div className="text-display-sm">{nombreActual || "Sin nombre"}</div>
-          <div className="mt-px text-body-sm text-text-secondary">{correo}</div>
-          <div
-            className="mt-2 inline-block rounded-full px-3 py-1 text-label-sm"
+        <div className="min-w-0">
+          <div className="truncate text-display-sm">{nombreActual || "Sin nombre"}</div>
+          <div className="mt-px truncate text-body-sm text-text-secondary">{correoActual}</div>
+        </div>
+      </div>
+
+      <div className="mb-5 rounded-xl bg-surface-card p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span
+            className="rounded-full px-3 py-1 text-label-sm"
             style={{
               backgroundColor: "var(--accent-subtle)",
               color: "var(--accent-default)",
             }}
           >
             {torneoNombre}
-          </div>
+          </span>
+          <Link
+            href="/"
+            className="flex flex-shrink-0 items-center gap-1 text-body-md"
+            style={{ color: "var(--accent-default)" }}
+          >
+            Cambiar torneo
+            <ChevronRight
+              className="h-[18px] w-[18px]"
+              style={{ color: "var(--icons-primary)" }}
+            />
+          </Link>
         </div>
 
-        <div className="mt-1 flex gap-2">
+        <div className="flex gap-2">
           <div
-            className="flex min-w-[88px] flex-col items-center rounded-xl px-5 py-3"
-            style={{ backgroundColor: "var(--surface-card)" }}
+            className="flex flex-1 flex-col items-center rounded-xl px-5 py-3"
+            style={{ backgroundColor: "var(--surface-background)" }}
           >
             <span className="text-heading-lg" style={{ color: "var(--accent-default)" }}>
               {posicion != null ? `${posicion}º` : "—"}
@@ -143,8 +235,8 @@ export function PerfilCliente({
             <span className="text-label-md text-text-secondary">Posición</span>
           </div>
           <div
-            className="flex min-w-[88px] flex-col items-center rounded-xl px-5 py-3"
-            style={{ backgroundColor: "var(--surface-card)" }}
+            className="flex flex-1 flex-col items-center rounded-xl px-5 py-3"
+            style={{ backgroundColor: "var(--surface-background)" }}
           >
             <span className="text-heading-lg">{puntos}</span>
             <span className="text-label-md text-text-secondary">Puntos</span>
@@ -159,10 +251,21 @@ export function PerfilCliente({
         <button
           onClick={abrirEditar}
           className="flex w-full items-center justify-between px-4 py-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           <div className="flex items-center gap-3">
             <UserRound className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
             <span className="text-body-md">Editar nombre</span>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+        </button>
+        <button
+          onClick={abrirCambiarEmail}
+          className="flex w-full items-center justify-between px-4 py-4"
+        >
+          <div className="flex items-center gap-3">
+            <Mail className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            <span className="text-body-md">Cambiar email</span>
           </div>
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </button>
@@ -184,42 +287,23 @@ export function PerfilCliente({
         </Link>
       </div>
 
-      <div className="mb-2 text-heading-md">
-        Torneos
-      </div>
-      <div className="mb-5 rounded-xl bg-surface-card">
-        <Link href="/" className="flex w-full items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <ArrowLeftRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            <span className="text-body-md">Cambiar competición</span>
-          </div>
-          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-        </Link>
-      </div>
-
       {esAdmin && (
         <>
           <div className="mb-2 text-heading-md">
             Administración
           </div>
-          {/*
-            Apagada a propósito: la pantalla de admin todavía escribe contra el
-            esquema viejo (sin tournament_id, con equipo_avanza_id en matches).
-            La ruta /perfil/admin sigue existiendo; se enciende al migrarla.
-          */}
-          <div className="mb-5 flex w-full items-center justify-between rounded-xl bg-surface-card px-4 py-4">
-            <div className="flex items-center gap-3">
-              <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--text-idle)" }} />
-              <span className="text-body-md" style={{ color: "var(--text-idle)" }}>
-                Cargar resultados
-              </span>
-            </div>
-            <span className="text-label-sm text-text-secondary">
-              Pendiente de migrar
-            </span>
-          </div>
-
           <div className="mb-5 rounded-xl bg-surface-card">
+            <Link
+              href={`/perfil/admin/resultados?desde=${torneoSlug}`}
+              className="flex w-full items-center justify-between px-4 py-4"
+              style={{ borderBottom: "1px solid var(--border)" }}
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+                <span className="text-body-md">Cargar resultados</span>
+              </div>
+              <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            </Link>
             <Link
               href={`/perfil/admin/solicitudes?desde=${torneoSlug}`}
               className="flex w-full items-center justify-between px-4 py-4"
@@ -306,6 +390,127 @@ export function PerfilCliente({
                 {guardando ? "Guardando..." : "Guardar"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {pasoEmail !== "cerrado" && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-8"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          onClick={() => !procesandoEmail && cerrarCambiarEmail()}
+        >
+          <div
+            className="w-full max-w-[300px] rounded-2xl p-5"
+            style={{ backgroundColor: "var(--surface-card)", border: "1px solid var(--border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {pasoEmail === "correo" ? (
+              <>
+                <h3 className="text-heading-md">Cambiar email</h3>
+                <p className="mt-1 text-body-sm text-text-secondary">
+                  Te mandamos un código al correo nuevo para confirmarlo.
+                </p>
+                <input
+                  type="email"
+                  value={nuevoCorreo}
+                  onChange={(e) => setNuevoCorreo(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && enviarNuevoCorreo()}
+                  placeholder="tunuevo@correo.com"
+                  className="mt-3 w-full rounded-lg px-3 py-2 text-body-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {errorEmail && (
+                  <p className="mt-2 text-label-md text-feedback-danger">{errorEmail}</p>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={cerrarCambiarEmail}
+                    disabled={procesandoEmail}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{
+                      backgroundColor: "var(--background)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={enviarNuevoCorreo}
+                    disabled={procesandoEmail || nuevoCorreo.trim().length === 0}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{
+                      backgroundColor: "var(--accent-default)",
+                      color: "var(--text-on-accent)",
+                      opacity:
+                        procesandoEmail || nuevoCorreo.trim().length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    {procesandoEmail ? "Enviando..." : "Enviar código"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-heading-md">Revisa tu correo nuevo</h3>
+                <p className="mt-1 text-body-sm text-text-secondary">
+                  Enviamos un código de 6 dígitos a{" "}
+                  <span className="text-foreground">{nuevoCorreo}</span>.
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={codigoEmail}
+                  onChange={(e) =>
+                    setCodigoEmail(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && confirmarNuevoCorreo()}
+                  placeholder="______"
+                  maxLength={6}
+                  className="mt-3 w-full rounded-lg px-3 py-3 text-center text-display-lg-code outline-none"
+                  style={{
+                    backgroundColor: "var(--background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {errorEmail && (
+                  <p className="mt-2 text-label-md text-feedback-danger">{errorEmail}</p>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={cerrarCambiarEmail}
+                    disabled={procesandoEmail}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{
+                      backgroundColor: "var(--background)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmarNuevoCorreo}
+                    disabled={procesandoEmail || codigoEmail.length !== 6}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{
+                      backgroundColor: "var(--accent-default)",
+                      color: "var(--text-on-accent)",
+                      opacity: procesandoEmail || codigoEmail.length !== 6 ? 0.5 : 1,
+                    }}
+                  >
+                    {procesandoEmail ? "Confirmando..." : "Confirmar"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
