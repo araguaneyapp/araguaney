@@ -170,12 +170,19 @@ export function LoginForm() {
           Cambiar correo
         </button>
 
-        <div className="flex flex-col gap-1">
-          <h2 className="text-heading-xl">Pide acceso</h2>
-          <p className="text-body-sm text-text-secondary">
-            <span className="text-foreground">{email}</span> todavía no está
-            autorizado. Manda una solicitud y el administrador la revisa.
-          </p>
+        <h2 className="text-heading-md text-text-primary">Solicita tu acceso</h2>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-label-md-caps text-text-secondary">
+            CORREO
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tucorreo@email.com"
+            className="rounded-lg border border-input bg-surface-card px-4 py-3 text-body-sm outline-none focus:border-accent-default"
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -199,12 +206,12 @@ export function LoginForm() {
 
         <button
           onClick={enviarSolicitud}
-          disabled={status === "sending"}
+          disabled={status === "sending" || email.trim().length === 0}
           className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-center text-action-button"
           style={{
             backgroundColor: "var(--accent-default)",
             color: "var(--text-on-accent)",
-            opacity: status === "sending" ? 0.4 : 1,
+            opacity: status === "sending" || email.trim().length === 0 ? 0.4 : 1,
           }}
         >
           {status === "sending" ? "Enviando..." : "Solicitar acceso"}
@@ -318,6 +325,8 @@ export function LoginForm() {
   // PASO 1: ingresar correo
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
+      <h2 className="text-heading-md text-text-primary">Ingresa tu Correo</h2>
+
       <div className="flex flex-col gap-2">
         <label className="text-label-md-caps text-text-secondary">
           CORREO
@@ -350,11 +359,13 @@ export function LoginForm() {
         {status === "sending" ? "Enviando..." : "Enviar código"}
       </button>
 
-      <p className="text-center text-label-md text-text-secondary leading-relaxed">
-        Acceso solo para miembros invitados.
-        <br />
-        Si tu correo está autorizado, recibirás un código.
-      </p>
+      <button
+        onClick={() => setPaso("solicitud")}
+        className="text-center text-action-button"
+        style={{ color: "var(--accent-default)" }}
+      >
+        Crear cuenta
+      </button>
     </div>
   );
 }
