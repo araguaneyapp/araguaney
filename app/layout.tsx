@@ -13,21 +13,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://araguaney-quiniela.vercel.app"),
-  title: "Araguaney: Quiniela Mundial 2026",
-  description: "Predice los partidos del Mundial y compite con tus amigos",
+  metadataBase: new URL("https://www.araguaney.cl"),
+  title: "Araguaney Quiniela",
+  description: "Predice partidos y compite con tus amigos",
   openGraph: {
-    title: "Araguaney: Quiniela Mundial 2026",
-    description: "Predice los partidos del Mundial y compite con tus amigos",
-    url: "https://araguaney-quiniela.vercel.app",
+    title: "Araguaney Quiniela",
+    description: "Predice partidos y compite con tus amigos",
+    url: "https://www.araguaney.cl",
     siteName: "Araguaney",
     locale: "es_CL",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Araguaney: Quiniela Mundial 2026",
-    description: "Predice los partidos del Mundial y compite con tus amigos",
+    title: "Araguaney Quiniela",
+    description: "Predice partidos y compite con tus amigos",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon-dark.ico", media: "(prefers-color-scheme: dark)" },
+      { url: "/favicon-light.ico", media: "(prefers-color-scheme: light)" },
+    ],
   },
 };
 
