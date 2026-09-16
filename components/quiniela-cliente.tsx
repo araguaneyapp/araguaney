@@ -632,7 +632,11 @@ export function QuinielaCliente({
               ref={(el) => {
                 bloqueRefs.current[bloque.clave] = el;
               }}
-              className="mb-6 scroll-mt-[var(--layout-content-offset-nav)]"
+              className={
+                (hayTop || hayExtras) && formatoDeFase(config, faseActiva) === "puntos"
+                  ? "mb-6 scroll-mt-[calc(var(--layout-content-offset-nav)+140px)]"
+                  : "mb-6 scroll-mt-[var(--layout-content-offset-nav)]"
+              }
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className="flex items-center gap-2 text-heading-md">

@@ -67,7 +67,7 @@ export default async function HubPage() {
             return (
               <Link
                 key={torneo.id}
-                href={`/${torneo.slug}/partidos`}
+                href={`/${torneo.slug}`}
                 className="flex items-center gap-3 rounded-xl bg-surface-card p-4"
               >
                 <span
