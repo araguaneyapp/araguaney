@@ -40,6 +40,24 @@ alter table public.groups enable row level security;
 alter table public.group_members enable row level security;
 alter table public.group_join_requests enable row level security;
 
+-- Chequeo de membresía envuelto en security definer: si las políticas de
+-- `groups`/`group_members` se auto-consultaran directo (subquery plana),
+-- Postgres tira "infinite recursion detected in policy for relation
+-- group_members" apenas group_members se referencia a sí misma en su
+-- propia política. Mismo patrón que ya usa is_admin() para profiles.
+create or replace function public.es_miembro_de_grupo(p_group_id bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select exists (
+    select 1 from group_members
+    where group_id = p_group_id and usuario_id = auth.uid()
+  );
+$$;
+
 -- Solo ve un grupo quien es miembro, quien lo creó, o el SuperAdmin.
 -- Buscar un grupo por código para unirse pasa por el RPC
 -- buscar_grupo_por_codigo, no por SELECT directo, así los grupos de
@@ -50,10 +68,7 @@ create policy "grupos visibles para sus miembros"
   using (
     creado_por = auth.uid()
     or is_admin()
-    or exists (
-      select 1 from public.group_members gm
-      where gm.group_id = groups.id and gm.usuario_id = auth.uid()
-    )
+    or es_miembro_de_grupo(id)
   );
 
 create policy "roster visible para miembros del mismo grupo"
@@ -61,10 +76,7 @@ create policy "roster visible para miembros del mismo grupo"
   to authenticated
   using (
     is_admin()
-    or exists (
-      select 1 from public.group_members gm2
-      where gm2.group_id = group_members.group_id and gm2.usuario_id = auth.uid()
-    )
+    or es_miembro_de_grupo(group_id)
   );
 
 -- El interesado ve su propia solicitud; el admin del grupo ve las de su grupo.
@@ -92,11 +104,18 @@ security definer
 set search_path to 'public'
 as $$
 declare
+  -- Crockford Base32: excluye I/L/O/U a propósito, para no confundir con
+  -- 1/1/0/V al compartir el código a mano.
+  v_alfabeto text := '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   v_codigo text;
   v_group_id bigint;
+  i int;
 begin
   loop
-    v_codigo := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6));
+    v_codigo := '';
+    for i in 1..6 loop
+      v_codigo := v_codigo || substr(v_alfabeto, floor(random() * length(v_alfabeto))::int + 1, 1);
+    end loop;
     exit when not exists (select 1 from groups where codigo_invitacion = v_codigo);
   end loop;
 
@@ -190,3 +209,9 @@ grant execute on function public.solicitar_union_grupo(bigint, text) to authenti
 
 revoke execute on function public.resolver_solicitud_grupo(bigint, boolean) from public, anon, authenticated;
 grant execute on function public.resolver_solicitud_grupo(bigint, boolean) to authenticated;
+
+-- es_miembro_de_grupo la llaman las políticas RLS evaluadas como
+-- authenticated (no es un RPC de cara al cliente, pero igual necesita el
+-- permiso explícito por el mismo motivo que las demás).
+revoke execute on function public.es_miembro_de_grupo(bigint) from public, anon, authenticated;
+grant execute on function public.es_miembro_de_grupo(bigint) to authenticated;

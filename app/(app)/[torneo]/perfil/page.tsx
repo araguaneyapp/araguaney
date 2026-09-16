@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { PerfilCliente } from "@/components/perfil-cliente";
@@ -15,8 +16,11 @@ export default async function PerfilPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const cookieStore = await cookies();
+  const grupoActivo = cookieStore.get("grupo_activo")?.value;
+
   // La posición y los puntos son los de ESTE torneo, no un acumulado global.
-  const [{ data: perfil }, { data: fila }] = await Promise.all([
+  const [{ data: perfil }, { data: fila }, { data: grupo }] = await Promise.all([
     supabase
       .from("profiles")
       .select("nombre, es_admin")
@@ -28,6 +32,14 @@ export default async function PerfilPage({
       .eq("tournament_id", torneo.id)
       .eq("usuario_id", user?.id ?? "")
       .maybeSingle(),
+    grupoActivo
+      ? supabase
+          .from("groups")
+          .select("nombre, codigo_invitacion")
+          .eq("id", grupoActivo)
+          .eq("tournament_id", torneo.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   return (
@@ -40,6 +52,8 @@ export default async function PerfilPage({
       esAdmin={perfil?.es_admin ?? false}
       torneoNombre={torneo.nombre}
       torneoSlug={torneo.slug}
+      grupoNombre={grupo?.nombre ?? null}
+      grupoCodigo={grupo?.codigo_invitacion ?? null}
     />
   );
 }

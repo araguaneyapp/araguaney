@@ -26,6 +26,8 @@ export function PerfilCliente({
   esAdmin,
   torneoNombre,
   torneoSlug,
+  grupoNombre,
+  grupoCodigo,
 }: {
   nombre: string;
   correo: string;
@@ -35,6 +37,8 @@ export function PerfilCliente({
   esAdmin: boolean;
   torneoNombre: string;
   torneoSlug: string;
+  grupoNombre: string | null;
+  grupoCodigo: string | null;
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
@@ -49,6 +53,7 @@ export function PerfilCliente({
   const [borrador, setBorrador] = useState(nombre);
   const [guardando, setGuardando] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(false);
+  const [mostrarCopiado, setMostrarCopiado] = useState(false);
 
   /*
    * Cambio de email en dos pasos: se pide confirmación en el correo NUEVO
@@ -65,6 +70,17 @@ export function PerfilCliente({
   const [errorEmail, setErrorEmail] = useState<string | null>(null);
 
   const inicial = nombreActual.trim().charAt(0).toUpperCase() || "?";
+
+  const copiarCodigo = async () => {
+    if (!grupoCodigo) return;
+    try {
+      await navigator.clipboard.writeText(grupoCodigo);
+      setMostrarCopiado(true);
+      setTimeout(() => setMostrarCopiado(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles: no hay mucho más que hacer.
+    }
+  };
 
   const cerrarSesion = async () => {
     setSaliendo(true);
@@ -201,6 +217,41 @@ export function PerfilCliente({
       </div>
 
       <div className="mb-5 rounded-xl bg-surface-card p-4">
+        <div
+          className="mb-3 flex items-center justify-between gap-2 pb-3"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <span className="text-heading-md">{grupoNombre ?? torneoNombre}</span>
+          {grupoCodigo && (
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={copiarCodigo}
+                className="text-body-md text-text-secondary"
+              >
+                ID: {grupoCodigo}
+              </button>
+              {mostrarCopiado && (
+                <div className="absolute -top-11 left-1/2 flex -translate-x-1/2 flex-col items-center">
+                  <span
+                    className="flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-label-sm"
+                    style={{
+                      backgroundColor: "var(--feedback-success-surface)",
+                      color: "var(--feedback-success)",
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Copiado
+                  </span>
+                  <span
+                    className="-mt-1 h-2 w-2 rotate-45"
+                    style={{ backgroundColor: "var(--feedback-success-surface)" }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="mb-3 flex items-center justify-between gap-2">
           <span
             className="rounded-full px-3 py-1 text-label-sm"
@@ -212,11 +263,11 @@ export function PerfilCliente({
             {torneoNombre}
           </span>
           <Link
-            href="/"
+            href="/torneos"
             className="flex flex-shrink-0 items-center gap-1 text-body-md"
             style={{ color: "var(--accent-default)" }}
           >
-            Cambiar torneo
+            Cambiar de torneo
             <ChevronRight
               className="h-[18px] w-[18px]"
               style={{ color: "var(--icons-primary)" }}
