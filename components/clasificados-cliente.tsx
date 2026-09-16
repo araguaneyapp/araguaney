@@ -61,7 +61,7 @@ function HojaSelector({
       />
 
       <div
-        className="relative mb-20 flex max-h-[calc(78vh-5rem)] flex-col rounded-t-2xl bg-surface-card"
+        className="relative mb-20 flex max-h-[calc(78dvh-5rem)] flex-col rounded-t-2xl bg-surface-card"
         style={{ borderTop: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between px-5 pb-3 pt-5">
