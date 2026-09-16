@@ -8,6 +8,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
 import { coincide } from "@/lib/texto";
 import { ahoraMs } from "@/lib/tiempo";
+import { useVisualViewport } from "@/lib/use-visual-viewport";
 
 export type EquipoOpcion = EquipoEscudo & { id: number };
 
@@ -70,9 +71,15 @@ function Hoja({
   children: (consulta: string) => React.ReactNode;
 }) {
   const [busqueda, setBusqueda] = useState("");
+  const viewport = useVisualViewport();
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+    <div
+      className="fixed inset-x-0 top-0 z-[60] flex h-dvh flex-col justify-end"
+      style={
+        viewport ? { top: viewport.offsetTop, height: viewport.height } : undefined
+      }
+    >
       <button
         aria-label="Cerrar"
         onClick={onCerrar}
@@ -81,7 +88,7 @@ function Hoja({
       />
 
       <div
-        className="relative mb-20 flex max-h-[calc(78dvh-5rem)] flex-col rounded-t-2xl bg-surface-card"
+        className="relative mb-20 flex max-h-[calc(78%-5rem)] flex-col rounded-t-2xl bg-surface-card"
         style={{ borderTop: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between px-5 pb-3 pt-5">
