@@ -156,6 +156,9 @@ begin
 end;
 $$;
 
+-- Al aprobar, recalcular_ranking() se llama de una para que el miembro
+-- nuevo aparezca con 0 puntos de inmediato, no esperar al próximo trigger
+-- de predicciones/resultados (ver ranking-por-grupo.sql).
 create or replace function public.resolver_solicitud_grupo(p_solicitud_id bigint, p_aprobar boolean)
 returns void
 language plpgsql
@@ -165,6 +168,7 @@ as $$
 declare
   v_group_id bigint;
   v_usuario_id uuid;
+  v_tournament_id bigint;
 begin
   select group_id, usuario_id into v_group_id, v_usuario_id
     from group_join_requests
@@ -184,6 +188,9 @@ begin
       on conflict do nothing;
     update group_join_requests set estado = 'aprobado', resuelto_en = now()
       where id = p_solicitud_id;
+
+    select tournament_id into v_tournament_id from groups where id = v_group_id;
+    perform recalcular_ranking(v_tournament_id);
   else
     update group_join_requests set estado = 'rechazado', resuelto_en = now()
       where id = p_solicitud_id;

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
+import { contarSolicitudesPendientes } from "@/lib/solicitudes";
 import { PerfilCliente } from "@/components/perfil-cliente";
 
 export default async function PerfilPage({
@@ -21,12 +22,13 @@ export default async function PerfilPage({
   const grupoActivo = cookieStore.get("grupo_activo")?.value;
 
   // La posición y los puntos son los de ESTE grupo, no un acumulado global.
-  const [{ data: perfil }, { data: fila }, { data: grupo }] = await Promise.all([
+  const [{ data: perfil }, solicitudes, { data: fila }, { data: grupo }] = await Promise.all([
     supabase
       .from("profiles")
       .select("nombre, es_admin")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
+    contarSolicitudesPendientes(supabase, user?.id ?? ""),
     grupoActivo
       ? supabase
           .from("ranking")
@@ -58,6 +60,8 @@ export default async function PerfilPage({
       torneoSlug={torneo.slug}
       grupoNombre={grupo?.nombre ?? null}
       grupoCodigo={grupo?.codigo_invitacion ?? null}
+      administraAlgunGrupo={solicitudes.administraAlgunGrupo}
+      hayPendientes={solicitudes.hayPendientes}
     />
   );
 }

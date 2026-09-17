@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { ScreenHeader } from "@/components/screen-header";
+import { CampanaSolicitudes } from "@/components/campana-solicitudes";
 import {
   LogOut,
   Check,
@@ -12,6 +13,7 @@ import {
   Mail,
   BookOpen,
   ChevronRight,
+  ClipboardList,
   Trash2,
 } from "lucide-react";
 
@@ -25,6 +27,8 @@ export function PerfilCliente({
   torneoSlug,
   grupoNombre,
   grupoCodigo,
+  administraAlgunGrupo,
+  hayPendientes,
 }: {
   nombre: string;
   correo: string;
@@ -35,6 +39,8 @@ export function PerfilCliente({
   torneoSlug: string;
   grupoNombre: string | null;
   grupoCodigo: string | null;
+  administraAlgunGrupo: boolean;
+  hayPendientes: boolean;
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
@@ -199,17 +205,20 @@ export function PerfilCliente({
     <main className="min-h-screen px-5 pb-6">
       <ScreenHeader title="Perfil" />
 
-      <div className="mb-6 flex items-center gap-3 pt-2">
-        <div
-          className="flex h-[64px] w-[64px] flex-shrink-0 items-center justify-center rounded-full text-display-lg"
-          style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
-        >
-          {inicial}
+      <div className="mb-6 flex items-center justify-between gap-3 pt-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="flex h-[64px] w-[64px] flex-shrink-0 items-center justify-center rounded-full text-display-lg"
+            style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
+          >
+            {inicial}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-display-sm">{nombreActual || "Sin nombre"}</div>
+            <div className="mt-px truncate text-body-sm text-text-secondary">{correoActual}</div>
+          </div>
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-display-sm">{nombreActual || "Sin nombre"}</div>
-          <div className="mt-px truncate text-body-sm text-text-secondary">{correoActual}</div>
-        </div>
+        {administraAlgunGrupo && <CampanaSolicitudes hayPendientes={hayPendientes} />}
       </div>
 
       <div className="mb-5 rounded-xl bg-surface-card p-4">
@@ -319,6 +328,26 @@ export function PerfilCliente({
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </Link>
       </div>
+
+      {administraAlgunGrupo && (
+        <>
+          <div className="mb-2 text-heading-md">
+            Administración
+          </div>
+          <div className="mb-5 rounded-xl bg-surface-card">
+            <Link
+              href="/solicitudes"
+              className="flex w-full items-center justify-between px-4 py-4"
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+                <span className="text-body-md">Solicitudes</span>
+              </div>
+              <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            </Link>
+          </div>
+        </>
+      )}
 
       <button
         onClick={() => setConfirmando(true)}

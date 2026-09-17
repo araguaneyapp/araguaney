@@ -44,6 +44,7 @@
   --feedback-success-surface: var(--p-green-green-dark);
   --feedback-warning: var(--p-yellow-araguaney);
   --feedback-warning-surface: var(--p-yellow-yellow-dark);
+  --icons-disable: var(--p-neutral-surface-card);
   --icons-error: var(--p-red-red);
   --icons-on-accent: var(--text-on-accent);
   --icons-primary: var(--p-yellow-araguaney);

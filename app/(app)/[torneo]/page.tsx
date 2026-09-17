@@ -17,6 +17,8 @@ import { uno } from "@/lib/embeds";
 import { claveDia, tituloDia, horaLocal } from "@/lib/fechas";
 import { plazasClasificacion } from "@/lib/config-torneo";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
+import { CampanaSolicitudes } from "@/components/campana-solicitudes";
+import { contarSolicitudesPendientes } from "@/lib/solicitudes";
 
 type EquipoInicio = EquipoEscudo & { id: number };
 
@@ -225,6 +227,7 @@ export default async function InicioPage({
 
   const [
     { data: perfil },
+    solicitudes,
     { data: fila },
     { data: partidosData },
     { data: extrasData },
@@ -232,6 +235,7 @@ export default async function InicioPage({
     { count: elegidosTop },
   ] = await Promise.all([
     supabase.from("profiles").select("nombre, es_admin").eq("id", usuarioId).maybeSingle(),
+    contarSolicitudesPendientes(supabase, usuarioId),
     grupoActivo
       ? supabase
           .from("ranking")
@@ -305,11 +309,16 @@ export default async function InicioPage({
 
   return (
     <main className="min-h-screen px-5 pt-8 pb-6">
-      <div className="mb-5">
-        <p className="text-body-sm text-text-secondary">Hola,</p>
-        <h1 className="text-heading-xl leading-tight">
-          {perfil?.nombre || "jugador"} 👋
-        </h1>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-body-sm text-text-secondary">Hola,</p>
+          <h1 className="text-heading-xl leading-tight">
+            {perfil?.nombre || "jugador"} 👋
+          </h1>
+        </div>
+        {solicitudes.administraAlgunGrupo && (
+          <CampanaSolicitudes hayPendientes={solicitudes.hayPendientes} />
+        )}
       </div>
 
       <div

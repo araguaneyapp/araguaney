@@ -51,6 +51,7 @@
   --color-icons-success: var(--icons-success);
   --color-icons-error: var(--icons-error);
   --color-icons-on-accent: var(--icons-on-accent);
+  --color-icons-disable: var(--icons-disable);
 
   /* ===== DS: Podio ===== */
   --color-podium-gold: var(--podium-gold);
