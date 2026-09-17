@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ClipboardList,
   Trash2,
-  Inbox,
 } from "lucide-react";
 
 export function PerfilCliente({
@@ -331,23 +330,12 @@ export function PerfilCliente({
           </div>
           <div className="mb-5 rounded-xl bg-surface-card">
             <Link
-              href={`/perfil/admin/resultados?desde=${torneoSlug}`}
+              href="/admin"
               className="flex w-full items-center justify-between px-4 py-4"
-              style={{ borderBottom: "1px solid var(--border)" }}
             >
               <div className="flex items-center gap-3">
                 <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-                <span className="text-body-md">Cargar resultados</span>
-              </div>
-              <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            </Link>
-            <Link
-              href={`/perfil/admin/solicitudes?desde=${torneoSlug}`}
-              className="flex w-full items-center justify-between px-4 py-4"
-            >
-              <div className="flex items-center gap-3">
-                <Inbox className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-                <span className="text-body-md">Solicitudes de acceso</span>
+                <span className="text-body-md">Panel de administración</span>
               </div>
               <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
             </Link>
