@@ -217,10 +217,7 @@ export function PerfilCliente({
       </div>
 
       <div className="mb-5 rounded-xl bg-surface-card p-4">
-        <div
-          className="mb-3 flex items-center justify-between gap-2 pb-3"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
+        <div className="mb-3 flex items-center justify-between gap-2">
           <span className="text-heading-md">{grupoNombre ?? torneoNombre}</span>
           {grupoCodigo && (
             <div className="relative flex-shrink-0">
@@ -228,10 +225,10 @@ export function PerfilCliente({
                 onClick={copiarCodigo}
                 className="text-body-md text-text-secondary"
               >
-                ID: {grupoCodigo}
+                Copiar ID: {grupoCodigo}
               </button>
               {mostrarCopiado && (
-                <div className="absolute -top-11 left-1/2 flex -translate-x-1/2 flex-col items-center">
+                <div className="absolute -top-9 left-1/2 flex -translate-x-1/2 flex-col items-center">
                   <span
                     className="flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-label-sm"
                     style={{
@@ -252,29 +249,6 @@ export function PerfilCliente({
           )}
         </div>
 
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <span
-            className="rounded-full px-3 py-1 text-label-sm"
-            style={{
-              backgroundColor: "var(--accent-subtle)",
-              color: "var(--accent-default)",
-            }}
-          >
-            {torneoNombre}
-          </span>
-          <Link
-            href="/torneos"
-            className="flex flex-shrink-0 items-center gap-1 text-body-md"
-            style={{ color: "var(--accent-default)" }}
-          >
-            Cambiar de torneo
-            <ChevronRight
-              className="h-[18px] w-[18px]"
-              style={{ color: "var(--icons-primary)" }}
-            />
-          </Link>
-        </div>
-
         <div className="flex gap-2">
           <div
             className="flex flex-1 flex-col items-center rounded-xl px-5 py-3"
@@ -293,6 +267,18 @@ export function PerfilCliente({
             <span className="text-label-md text-text-secondary">Puntos</span>
           </div>
         </div>
+
+        <Link
+          href="/torneos"
+          className="mt-3 flex items-center justify-center gap-1 text-body-md leading-none"
+          style={{ color: "var(--accent-default)" }}
+        >
+          <span className="leading-none">Cambiar de torneo</span>
+          <ChevronRight
+            className="h-[18px] w-[18px] flex-shrink-0"
+            style={{ color: "var(--icons-primary)" }}
+          />
+        </Link>
       </div>
 
       <div className="mb-2 text-heading-md">
