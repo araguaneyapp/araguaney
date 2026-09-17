@@ -9,6 +9,7 @@ import {
   Trophy,
   Volleyball,
 } from "lucide-react";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -218,6 +219,9 @@ export default async function InicioPage({
   const plazas = plazasClasificacion(config);
   const hayTop = Boolean(config.prediccionClasificacion.tipo && plazas);
 
+  const cookieStore = await cookies();
+  const grupoActivo = cookieStore.get("grupo_activo")?.value;
+
   const [
     { data: perfil },
     { data: fila },
@@ -227,12 +231,14 @@ export default async function InicioPage({
     { count: elegidosTop },
   ] = await Promise.all([
     supabase.from("profiles").select("nombre").eq("id", usuarioId).maybeSingle(),
-    supabase
-      .from("ranking")
-      .select("posicion, puntos_total")
-      .eq("tournament_id", torneo.id)
-      .eq("usuario_id", usuarioId)
-      .maybeSingle(),
+    grupoActivo
+      ? supabase
+          .from("ranking")
+          .select("posicion, puntos_total")
+          .eq("group_id", grupoActivo)
+          .eq("usuario_id", usuarioId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from("matches")
       .select(

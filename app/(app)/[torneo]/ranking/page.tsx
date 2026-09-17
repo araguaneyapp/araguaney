@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -61,6 +62,9 @@ export default async function RankingPage({
   const torneo = await getTorneo(slug);
   const supabase = await createClient();
 
+  const cookieStore = await cookies();
+  const grupoActivo = cookieStore.get("grupo_activo")?.value;
+
   const [
     {
       data: { user },
@@ -69,10 +73,11 @@ export default async function RankingPage({
     { data: previas },
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase
-      .from("ranking")
-      .select(
-        `
+    grupoActivo
+      ? supabase
+          .from("ranking")
+          .select(
+            `
         usuario_id,
         nombre,
         puntos_partidos,
@@ -83,12 +88,15 @@ export default async function RankingPage({
         posicion,
         perfil:profiles(nombre)
       `
-      )
-      .eq("tournament_id", torneo.id),
-    supabase
-      .from("ranking_snapshot")
-      .select("usuario_id, posicion")
-      .eq("tournament_id", torneo.id),
+          )
+          .eq("group_id", grupoActivo)
+      : Promise.resolve({ data: [] }),
+    grupoActivo
+      ? supabase
+          .from("ranking_snapshot")
+          .select("usuario_id, posicion")
+          .eq("group_id", grupoActivo)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const posicionPrevia = new Map<string, number | null>(

@@ -19,19 +19,21 @@ export default async function PerfilPage({
   const cookieStore = await cookies();
   const grupoActivo = cookieStore.get("grupo_activo")?.value;
 
-  // La posición y los puntos son los de ESTE torneo, no un acumulado global.
+  // La posición y los puntos son los de ESTE grupo, no un acumulado global.
   const [{ data: perfil }, { data: fila }, { data: grupo }] = await Promise.all([
     supabase
       .from("profiles")
       .select("nombre, es_admin")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
-    supabase
-      .from("ranking")
-      .select("posicion, puntos_total")
-      .eq("tournament_id", torneo.id)
-      .eq("usuario_id", user?.id ?? "")
-      .maybeSingle(),
+    grupoActivo
+      ? supabase
+          .from("ranking")
+          .select("posicion, puntos_total")
+          .eq("group_id", grupoActivo)
+          .eq("usuario_id", user?.id ?? "")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     grupoActivo
       ? supabase
           .from("groups")

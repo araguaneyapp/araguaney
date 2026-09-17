@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 const UN_ANIO_EN_SEGUNDOS = 60 * 60 * 24 * 365;
 
@@ -19,6 +20,13 @@ export async function activarGrupo(grupoId: number, torneoSlug: string) {
     maxAge: UN_ANIO_EN_SEGUNDOS,
     path: "/",
   });
+
+  /*
+   * Inicio/Perfil/Ranking dependen de la cookie, no de la URL — el Router
+   * Cache de Next.js no tiene forma de saber que cambió, así que sin esto
+   * seguiría mostrando la versión del grupo anterior tras el redirect.
+   */
+  revalidatePath(`/${torneoSlug}`, "layout");
 
   redirect(`/${torneoSlug}`);
 }
