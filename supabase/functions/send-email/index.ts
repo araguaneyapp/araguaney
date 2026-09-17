@@ -13,10 +13,12 @@
 // a la URL de esta función y pegar el secret que Supabase genera ahí (debe
 // ser EXACTAMENTE el mismo que el secreto de arriba).
 //
-// TEMPORAL: la verificación de firma (standardwebhooks) fallaba en seco con
-// "Base64Coder: incorrect characters for decoding" sin poder diagnosticar
-// más en la sesión donde se armó esto — se quitó para destrabar. Retomar:
-// https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook
+// La firma del webhook (Standard Webhooks: headers webhook-id/
+// webhook-timestamp/webhook-signature) se verifica a mano con
+// crypto.subtle en vez de la librería standardwebhooks, que había fallado
+// antes con "Base64Coder: incorrect characters for decoding" sin poder
+// diagnosticar más. Sin esto, --no-verify-jwt deja la función abierta a
+// que cualquiera que descubra la URL mande correos arbitrarios vía Resend.
 
 type EmailData = {
   token: string;
@@ -36,9 +38,64 @@ type HookPayload = {
 
 const REMITENTE = Deno.env.get("EMAIL_REMITENTE") ?? "onboarding@resend.dev";
 const URL_APP = Deno.env.get("APP_URL") ?? "https://araguaney-quiniela.vercel.app";
+const HOOK_SECRET = Deno.env.get("SEND_EMAIL_HOOK_SECRET") ?? "";
+
+/** Comparación en tiempo constante: evita filtrar la firma correcta por timing. */
+function comparacionConstante(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Verifica la firma Standard Webhooks que manda Supabase Auth. El secreto
+ * viene como "v1,whsec_XXXX"; la parte que importa para el HMAC es lo que
+ * sigue a "whsec_", en base64. El header trae una o más firmas separadas
+ * por espacio (rotación de secreto), cada una con su propio prefijo "v1,".
+ * Timestamps de más de 5 minutos se rechazan para evitar replay.
+ */
+async function firmaValida(payload: string, headers: Headers): Promise<boolean> {
+  const id = headers.get("webhook-id");
+  const timestamp = headers.get("webhook-timestamp");
+  const firmasHeader = headers.get("webhook-signature");
+  if (!id || !timestamp || !firmasHeader || !HOOK_SECRET) return false;
+
+  const ts = parseInt(timestamp, 10);
+  if (!Number.isFinite(ts) || Math.abs(Math.floor(Date.now() / 1000) - ts) > 300) {
+    return false;
+  }
+
+  const secretoB64 = HOOK_SECRET.replace(/^v1,/, "").replace(/^whsec_/, "");
+  const secretoBytes = Uint8Array.from(atob(secretoB64), (c) => c.charCodeAt(0));
+
+  const clave = await crypto.subtle.importKey(
+    "raw",
+    secretoBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const firmaBytes = await crypto.subtle.sign(
+    "HMAC",
+    clave,
+    new TextEncoder().encode(`${id}.${timestamp}.${payload}`)
+  );
+  const firmaEsperada = btoa(String.fromCharCode(...new Uint8Array(firmaBytes)));
+
+  return firmasHeader
+    .split(" ")
+    .map((f) => f.replace(/^v1,/, ""))
+    .some((f) => comparacionConstante(f, firmaEsperada));
+}
 
 Deno.serve(async (req) => {
   const payload = await req.text();
+
+  if (!(await firmaValida(payload, req.headers))) {
+    console.error("Firma de webhook inválida o ausente");
+    return Response.json({ error: { message: "Firma inválida" } }, { status: 401 });
+  }
 
   let datos: HookPayload;
   try {
