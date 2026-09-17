@@ -1,11 +1,30 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Script from "next/script";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { LogIn, ArrowLeft } from "lucide-react";
 
 const SEGUNDOS_REENVIO = 120;
+
+// Público (va en el cliente a propósito): Cloudflare Turnstile, protege
+// signInWithOtp de registros/envíos masivos automatizados. El secret
+// correspondiente vive en Supabase (Authentication > Attack Protection).
+const TURNSTILE_SITE_KEY = "0x4AAAAAAE5oy7fT04lTXmPp";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: string | HTMLElement,
+        options: Record<string, unknown>
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -16,6 +35,36 @@ export function LoginForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [turnstileListo, setTurnstileListo] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  /*
+   * El widget de Turnstile se monta de nuevo cada vez que cambia `paso`
+   * (el contenedor con id="turnstile-container" vive en el JSX de cada
+   * paso, no en un wrapper compartido) — así que hay que re-renderizarlo
+   * en cada cambio, no solo una vez.
+   */
+  useEffect(() => {
+    if (!turnstileListo) return;
+    const contenedor = document.getElementById("turnstile-container");
+    if (!contenedor || !window.turnstile) return;
+
+    widgetIdRef.current = window.turnstile.render(contenedor, {
+      sitekey: TURNSTILE_SITE_KEY,
+      theme: "dark",
+      callback: (token: string) => setCaptchaToken(token),
+      "expired-callback": () => setCaptchaToken(null),
+    });
+
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, [turnstileListo, paso]);
 
   useEffect(() => {
     if (segundosRestantes <= 0) {
@@ -39,6 +88,13 @@ export function LoginForm() {
   async function enviarCodigo() {
     const correo = email.trim().toLowerCase();
     if (!correo) return;
+
+    if (!captchaToken) {
+      setStatus("error");
+      setErrorMsg("Completa la verificación de seguridad antes de continuar.");
+      return;
+    }
+
     setStatus("sending");
     setErrorMsg("");
 
@@ -48,8 +104,16 @@ export function LoginForm() {
       email: correo,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken,
       },
     });
+
+    // Token de un solo uso: hay que pedir uno nuevo para el próximo intento,
+    // sea cual sea el resultado de este.
+    if (widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+    setCaptchaToken(null);
 
     if (error) {
       setStatus("error");
@@ -164,7 +228,7 @@ export function LoginForm() {
 
         <button
           onClick={enviarCodigo}
-          disabled={segundosRestantes > 0 || status === "sending"}
+          disabled={segundosRestantes > 0 || status === "sending" || !captchaToken}
           className="text-center text-action-button"
           style={{
             color: segundosRestantes > 0 ? "var(--text-secondary)" : "var(--accent-default)",
@@ -176,6 +240,14 @@ export function LoginForm() {
             ? "Enviando..."
             : "Reenviar código"}
         </button>
+
+        <div id="turnstile-container" className="flex justify-center" />
+
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="afterInteractive"
+          onLoad={() => setTurnstileListo(true)}
+        />
       </div>
     );
   }
@@ -205,17 +277,25 @@ export function LoginForm() {
 
       <button
         onClick={enviarCodigo}
-        disabled={status === "sending"}
+        disabled={status === "sending" || !captchaToken}
         className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-center text-action-button"
         style={{
           backgroundColor: "var(--accent-default)",
           color: "var(--text-on-accent)",
-          opacity: status === "sending" ? 0.4 : 1,
+          opacity: status === "sending" || !captchaToken ? 0.4 : 1,
         }}
       >
         <LogIn className="h-[18px] w-[18px]" />
         {status === "sending" ? "Enviando..." : "Enviar código"}
       </button>
+
+      <div id="turnstile-container" className="flex justify-center" />
+
+      <Script
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        strategy="afterInteractive"
+        onLoad={() => setTurnstileListo(true)}
+      />
     </div>
   );
 }
