@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -22,6 +23,13 @@ export default async function QuinielaPage({
   } = await supabase.auth.getUser();
 
   const usuarioId = user?.id ?? "";
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("es_admin")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (perfil?.es_admin) redirect("/admin");
 
   const [{ data: partidosData }, { data: jornadas }] = await Promise.all([
     supabase

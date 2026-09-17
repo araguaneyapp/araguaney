@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -50,6 +50,14 @@ export default async function ExtrasPage({
   } = await supabase.auth.getUser();
 
   const usuarioId = user?.id ?? "";
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("es_admin")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (perfil?.es_admin) redirect("/admin");
+
   const cierreJornada = config.extras.cierreJornada;
   const necesitaEquipos = secciones.campeon || secciones.subcampeon || hayTop;
 

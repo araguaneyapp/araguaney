@@ -12,7 +12,6 @@ import {
   Mail,
   BookOpen,
   ChevronRight,
-  ClipboardList,
   Trash2,
 } from "lucide-react";
 
@@ -22,7 +21,6 @@ export function PerfilCliente({
   usuarioId,
   posicion,
   puntos,
-  esAdmin,
   torneoNombre,
   torneoSlug,
   grupoNombre,
@@ -33,7 +31,6 @@ export function PerfilCliente({
   usuarioId: string;
   posicion: number | null;
   puntos: number;
-  esAdmin: boolean;
   torneoNombre: string;
   torneoSlug: string;
   grupoNombre: string | null;
@@ -322,26 +319,6 @@ export function PerfilCliente({
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </Link>
       </div>
-
-      {esAdmin && (
-        <>
-          <div className="mb-2 text-heading-md">
-            Administración
-          </div>
-          <div className="mb-5 rounded-xl bg-surface-card">
-            <Link
-              href="/admin"
-              className="flex w-full items-center justify-between px-4 py-4"
-            >
-              <div className="flex items-center gap-3">
-                <ClipboardList className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-                <span className="text-body-md">Panel de administración</span>
-              </div>
-              <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            </Link>
-          </div>
-        </>
-      )}
 
       <button
         onClick={() => setConfirmando(true)}

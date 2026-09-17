@@ -4,7 +4,8 @@ import { SelectorTorneo } from "@/components/selector-torneo";
 
 /**
  * Igual que el Hub ("/"), pero sin el salto automático por cookie: es el
- * punto de entrada explícito para "cambiar de torneo/grupo" desde Perfil.
+ * punto de entrada explícito para "cambiar de torneo/grupo" desde Perfil
+ * (o "cambiar de torneo" del SuperAdmin).
  */
 export default async function TorneosPage() {
   const supabase = await createClient();
@@ -14,9 +15,15 @@ export default async function TorneosPage() {
   } = await supabase.auth.getUser();
 
   const [{ data: perfil }, torneos] = await Promise.all([
-    supabase.from("profiles").select("nombre").eq("id", user?.id ?? "").maybeSingle(),
+    supabase.from("profiles").select("nombre, es_admin").eq("id", user?.id ?? "").maybeSingle(),
     getTorneos(),
   ]);
 
-  return <SelectorTorneo nombre={perfil?.nombre ?? "jugador"} torneos={torneos} />;
+  return (
+    <SelectorTorneo
+      nombre={perfil?.nombre ?? "jugador"}
+      torneos={torneos}
+      esAdmin={perfil?.es_admin ?? false}
+    />
+  );
 }

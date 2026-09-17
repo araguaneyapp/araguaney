@@ -10,6 +10,9 @@ import { SelectorTorneo } from "@/components/selector-torneo";
  * consulta no devuelve nada), salta directo al torneo de ese grupo sin
  * mostrar el selector. Si no, muestra el grid de torneos — igual que
  * "/torneos", que nunca salta (ver ese archivo).
+ *
+ * El SuperAdmin no tiene grupo: su equivalente es la cookie
+ * "torneo_activo_admin", que lo manda directo a /admin.
  */
 export default async function HubPage() {
   const supabase = await createClient();
@@ -19,6 +22,21 @@ export default async function HubPage() {
   } = await supabase.auth.getUser();
 
   const cookieStore = await cookies();
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("nombre, es_admin")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
+  if (perfil?.es_admin) {
+    if (cookieStore.get("torneo_activo_admin")?.value) {
+      redirect("/admin");
+    }
+    const torneos = await getTorneos();
+    return <SelectorTorneo nombre={perfil?.nombre ?? "Admin"} torneos={torneos} esAdmin />;
+  }
+
   const grupoActivo = cookieStore.get("grupo_activo")?.value;
 
   if (grupoActivo) {
@@ -37,10 +55,7 @@ export default async function HubPage() {
     if (slug) redirect(`/${slug}`);
   }
 
-  const [{ data: perfil }, torneos] = await Promise.all([
-    supabase.from("profiles").select("nombre").eq("id", user?.id ?? "").maybeSingle(),
-    getTorneos(),
-  ]);
+  const torneos = await getTorneos();
 
   return <SelectorTorneo nombre={perfil?.nombre ?? "jugador"} torneos={torneos} />;
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Trophy } from "lucide-react";
 import type { EstadoTorneo, Torneo } from "@/lib/torneo";
+import { activarTorneoAdmin } from "@/app/(app)/torneos/actions";
 
 const ESTADOS: Record<EstadoTorneo, { texto: string; color: string; bg: string }> = {
   activo: {
@@ -40,9 +41,11 @@ function rangoFechas(inicio: string | null, fin: string | null) {
 export function SelectorTorneo({
   nombre,
   torneos,
+  esAdmin = false,
 }: {
   nombre: string;
   torneos: Torneo[];
+  esAdmin?: boolean;
 }) {
   return (
     <main className="min-h-screen px-5 pt-8 pb-6">
@@ -62,12 +65,9 @@ export function SelectorTorneo({
           {torneos.map((torneo) => {
             const estado = ESTADOS[torneo.estado] ?? ESTADOS.proximo;
             const fechas = rangoFechas(torneo.inicio, torneo.fin);
-            return (
-              <Link
-                key={torneo.id}
-                href={`/grupos/${torneo.slug}`}
-                className="flex flex-col items-center gap-2 rounded-xl bg-surface-card p-4 text-center"
-              >
+
+            const contenido = (
+              <>
                 <span
                   className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
                   style={{ backgroundColor: "var(--accent-subtle)" }}
@@ -113,6 +113,29 @@ export function SelectorTorneo({
                   Seleccionar
                   <ChevronRight className="h-4 w-4" />
                 </span>
+              </>
+            );
+
+            if (esAdmin) {
+              return (
+                <form key={torneo.id} action={activarTorneoAdmin.bind(null, torneo.slug)}>
+                  <button
+                    type="submit"
+                    className="flex w-full flex-col items-center gap-2 rounded-xl bg-surface-card p-4 text-center"
+                  >
+                    {contenido}
+                  </button>
+                </form>
+              );
+            }
+
+            return (
+              <Link
+                key={torneo.id}
+                href={`/grupos/${torneo.slug}`}
+                className="flex flex-col items-center gap-2 rounded-xl bg-surface-card p-4 text-center"
+              >
+                {contenido}
               </Link>
             );
           })}

@@ -10,6 +10,7 @@ import {
   Volleyball,
 } from "lucide-react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -230,7 +231,7 @@ export default async function InicioPage({
     { data: equiposData },
     { count: elegidosTop },
   ] = await Promise.all([
-    supabase.from("profiles").select("nombre").eq("id", usuarioId).maybeSingle(),
+    supabase.from("profiles").select("nombre, es_admin").eq("id", usuarioId).maybeSingle(),
     grupoActivo
       ? supabase
           .from("ranking")
@@ -278,6 +279,8 @@ export default async function InicioPage({
           .eq("usuario_id", usuarioId)
       : Promise.resolve({ count: 0 }),
   ]);
+
+  if (perfil?.es_admin) redirect("/admin");
 
   const partidos: PartidoInicio[] = ((partidosData ?? []) as FilaPartido[]).map(
     (p) => ({

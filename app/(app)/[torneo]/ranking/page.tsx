@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -98,6 +99,13 @@ export default async function RankingPage({
           .eq("group_id", grupoActivo)
       : Promise.resolve({ data: [] }),
   ]);
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("es_admin")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+  if (perfil?.es_admin) redirect("/admin");
 
   const posicionPrevia = new Map<string, number | null>(
     (previas ?? []).map((p) => [p.usuario_id, p.posicion])

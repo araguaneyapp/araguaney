@@ -20,10 +20,14 @@ export function CerrarSesionAdmin() {
     <button
       onClick={cerrarSesion}
       disabled={saliendo}
-      className="flex items-center gap-1 text-label-md"
-      style={{ color: "var(--accent-default)" }}
+      className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
+      style={{
+        border: "1px solid var(--accent-default)",
+        color: "var(--accent-default)",
+        opacity: saliendo ? 0.6 : 1,
+      }}
     >
-      <LogOut className="h-4 w-4" />
+      <LogOut className="h-[17px] w-[17px]" />
       {saliendo ? "Saliendo..." : "Cerrar sesión"}
     </button>
   );

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { ahoraMs } from "@/lib/tiempo";
@@ -32,6 +32,14 @@ export default async function ClasificadosPage({
   } = await supabase.auth.getUser();
 
   const usuarioId = user?.id ?? "";
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("es_admin")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (perfil?.es_admin) redirect("/admin");
+
   const cierreJornada = config.prediccionClasificacion.cierreJornada;
 
   const [{ data: equiposData }, { data: predicciones }, { data: jornadas }] =

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { PerfilCliente } from "@/components/perfil-cliente";
@@ -44,6 +45,8 @@ export default async function PerfilPage({
       : Promise.resolve({ data: null }),
   ]);
 
+  if (perfil?.es_admin) redirect("/admin");
+
   return (
     <PerfilCliente
       nombre={perfil?.nombre ?? ""}
@@ -51,7 +54,6 @@ export default async function PerfilPage({
       usuarioId={user?.id ?? ""}
       posicion={fila?.posicion ?? null}
       puntos={fila?.puntos_total ?? 0}
-      esAdmin={perfil?.es_admin ?? false}
       torneoNombre={torneo.nombre}
       torneoSlug={torneo.slug}
       grupoNombre={grupo?.nombre ?? null}
