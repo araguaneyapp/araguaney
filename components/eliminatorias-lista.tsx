@@ -471,6 +471,13 @@ export function EliminatoriasLista({
   const chipActivoRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    /*
+     * Sin esto, esta pantalla hereda el scroll donde haya quedado Partidos
+     * (comparten layout) — acá siempre se arranca arriba, no hace falta
+     * autoscroll como en Partidos porque son pocos partidos por fase.
+     */
+    window.scrollTo(0, 0);
+
     const barra = barraRef.current;
     const chip = chipActivoRef.current;
     if (!barra || !chip) return;

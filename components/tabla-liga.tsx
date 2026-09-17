@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { etiquetaFase } from "@/lib/fases";
 import { formatoDeFase, type ConfigTorneo } from "@/lib/config-torneo";
@@ -227,6 +230,12 @@ export function TablaLiga({
   filas: FilaTabla[];
   config: ConfigTorneo;
 }) {
+  // Hereda el scroll donde haya quedado Partidos (comparten layout); la
+  // tabla siempre arranca arriba, no necesita autoscroll.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   if (filas.length === 0) {
     return (
       <p className="rounded-xl bg-surface-card p-4 text-center text-body-sm text-text-secondary">
