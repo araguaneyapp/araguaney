@@ -46,7 +46,7 @@ function envoltorio(tituloInterno: string, cuerpo: string) {
             </td>
           </tr>
         </table>
-        <p style="margin:24px 0 0;color:#8A8A8A;font-size:12px;">Araguaney Quiniela · Champions 2026/27</p>
+        <p style="margin:24px 0 0;color:#8A8A8A;font-size:12px;">Araguaney Quiniela · Derechos Reservados · 2026</p>
       </td>
     </tr>
   </table>`;

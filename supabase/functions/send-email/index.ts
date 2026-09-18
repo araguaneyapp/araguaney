@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
           </td>
         </tr>
       </table>
-      <p style="margin:24px 0 0;color:#8A8A8A;font-size:12px;">Araguaney Quiniela · Mundial 2026</p>
+      <p style="margin:24px 0 0;color:#8A8A8A;font-size:12px;">Araguaney Quiniela · Derechos Reservados · 2026</p>
     </td>
   </tr>
 </table>`;
