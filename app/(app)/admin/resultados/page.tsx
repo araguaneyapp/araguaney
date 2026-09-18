@@ -55,5 +55,12 @@ export default async function AdminResultadosPage() {
     visitante: uno(p.visitante),
   }));
 
-  return <ResultadosCliente partidos={partidos} config={torneo.config} volverA="/admin" />;
+  return (
+    <ResultadosCliente
+      partidos={partidos}
+      config={torneo.config}
+      volverA="/admin"
+      torneoId={torneo.id}
+    />
+  );
 }

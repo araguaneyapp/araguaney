@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Lock, RotateCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Lock, RefreshCw, RotateCcw } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
 import { etiquetaFase, etiquetaLeg } from "@/lib/fases";
 import { formatoDeFase, ordenarFases, type ConfigTorneo } from "@/lib/config-torneo";
+import { sincronizarResultados } from "@/app/(app)/admin/resultados/actions";
 
 type EquipoAdmin = EquipoEscudo & { id: number };
 
@@ -305,14 +307,71 @@ function FilaPartido({
   );
 }
 
+function BotonSincronizar({ torneoId }: { torneoId: number }) {
+  const router = useRouter();
+  const [sincronizando, setSincronizando] = useState(false);
+  const [resumen, setResumen] = useState<string | null>(null);
+
+  const sincronizar = async () => {
+    setSincronizando(true);
+    setResumen(null);
+
+    const resultado = await sincronizarResultados(torneoId);
+    setSincronizando(false);
+
+    if (resultado.error) {
+      setResumen(resultado.error);
+      return;
+    }
+
+    if (resultado.motivo === "sin partidos pendientes") {
+      setResumen("No hay partidos pendientes por actualizar.");
+      return;
+    }
+
+    const partes = [`${resultado.actualizados ?? 0} actualizados`];
+    if (resultado.sin_resultado_aun) {
+      partes.push(`${resultado.sin_resultado_aun} sin resultado todavía`);
+    }
+    if (resultado.sin_mapear) {
+      partes.push(`${resultado.sin_mapear} sin mapear a la API`);
+    }
+    setResumen(partes.join(" · "));
+    router.refresh();
+  };
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={sincronizar}
+        disabled={sincronizando}
+        className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
+        style={{
+          border: "1px solid var(--accent-default)",
+          color: "var(--accent-default)",
+          opacity: sincronizando ? 0.6 : 1,
+        }}
+      >
+        <RefreshCw className={`h-[17px] w-[17px] ${sincronizando ? "animate-spin" : ""}`} />
+        {sincronizando ? "Actualizando..." : "Actualizar desde API"}
+      </button>
+      {resumen && (
+        <p className="mt-2 text-center text-label-md text-text-secondary">{resumen}</p>
+      )}
+    </div>
+  );
+}
+
 export function ResultadosCliente({
   partidos: iniciales,
   config,
   volverA,
+  torneoId,
 }: {
   partidos: PartidoAdmin[];
   config: ConfigTorneo;
   volverA: string;
+  torneoId: number;
 }) {
   const [partidos, setPartidos] = useState(iniciales);
 
@@ -332,10 +391,13 @@ export function ResultadosCliente({
     <main className="min-h-screen px-5 pb-6">
       <ScreenHeader title="Cargar resultados" backHref={volverA} />
 
+      <BotonSincronizar torneoId={torneoId} />
+
       <p className="mb-4 text-body-sm text-text-secondary">
-        Uso de emergencia: si la sincronización con la API falla, carga el
-        resultado acá. Ese partido queda &quot;editado a mano&quot; y el sync automático
-        lo deja en paz hasta que lo devuelvas.
+        La sincronización solo trae resultados ya jugados (no hay
+        actualización automática en vivo, es manual). Si un partido queda
+        mal o la API falla, cárgalo acá abajo — queda &quot;editado a mano&quot;
+        y la sincronización lo deja en paz hasta que lo devuelvas.
       </p>
 
       {grupos.map(({ fase, partidos: delaFase }) => {
