@@ -11,7 +11,7 @@ type ResultadoSync = {
   actualizados?: number;
   sin_resultado_aun?: number;
   sin_mapear?: number;
-  motivo?: string;
+  tabla_actualizada?: number;
 };
 
 /**
@@ -30,6 +30,8 @@ export async function sincronizarResultados(tournamentId: number): Promise<Resul
     return { error: "No se pudo conectar con la sincronización. Intenta de nuevo." };
   }
 
-  revalidatePath("/admin/resultados");
+  // También toca Tabla/Partidos del torneo, cuyo path exacto no se conoce
+  // acá (depende del slug) — se invalida todo para no dejar nada cacheado.
+  revalidatePath("/", "layout");
   return data as ResultadoSync;
 }

@@ -31,7 +31,7 @@ export function AdminBottomNav({ torneoSlug }: { torneoSlug?: string }) {
       label: "Administrador",
       icon: ClipboardList,
       href: "/admin/resultados",
-      activa: pathname === "/admin/resultados",
+      activa: pathname.startsWith("/admin/resultados"),
     },
   ];
 
