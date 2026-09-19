@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronRight, ScrollText } from "lucide-react";
+import { BookLock, BookOpen, ChevronRight, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { CerrarSesionAdmin } from "@/components/cerrar-sesion-admin";
 
@@ -89,7 +89,7 @@ export function PanelAdminCliente({
         </div>
       </div>
 
-      <div className="mb-2 text-heading-md">El juego</div>
+      <div className="mb-2 text-heading-md">Sobre el juego</div>
       <div className="mb-5 rounded-xl bg-surface-card">
         {torneoSlug ? (
           <Link
@@ -112,10 +112,21 @@ export function PanelAdminCliente({
             <span className="text-body-md">Reglas y puntuación</span>
           </div>
         )}
-        <Link href="/legal" className="flex w-full items-center justify-between px-4 py-4">
+        <Link
+          href="/legal/terminos"
+          className="flex w-full items-center justify-between px-4 py-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
           <div className="flex items-center gap-3">
             <ScrollText className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            <span className="text-body-md">Aviso legal</span>
+            <span className="text-body-md">Términos y condiciones</span>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+        </Link>
+        <Link href="/legal/privacidad" className="flex w-full items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <BookLock className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            <span className="text-body-md">Políticas de privacidad</span>
           </div>
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </Link>

@@ -11,6 +11,7 @@ import {
   Check,
   UserRound,
   Mail,
+  BookLock,
   BookOpen,
   ChevronRight,
   ClipboardList,
@@ -315,7 +316,7 @@ export function PerfilCliente({
       </div>
 
       <div className="mb-2 text-heading-md">
-        El juego
+        Sobre el juego
       </div>
       <div className="mb-5 rounded-xl bg-surface-card">
         <Link
@@ -329,10 +330,21 @@ export function PerfilCliente({
           </div>
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </Link>
-        <Link href="/legal" className="flex w-full items-center justify-between px-4 py-4">
+        <Link
+          href="/legal/terminos"
+          className="flex w-full items-center justify-between px-4 py-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
           <div className="flex items-center gap-3">
             <ScrollText className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
-            <span className="text-body-md">Aviso legal</span>
+            <span className="text-body-md">Términos y condiciones</span>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+        </Link>
+        <Link href="/legal/privacidad" className="flex w-full items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <BookLock className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            <span className="text-body-md">Políticas de privacidad</span>
           </div>
           <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
         </Link>

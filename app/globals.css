@@ -234,4 +234,21 @@
     background: linear-gradient(135deg, var(--effect-gold-box-start), var(--effect-gold-box-end));
     border: 1px solid var(--effect-gold-box-border);
   }
+
+  /* Scroll con nuestra identidad (los paneles de opciones tipo desplegable
+     no deben usar el scrollbar gris/blanco por defecto del navegador). */
+  .scroll-identidad {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-default) var(--surface-background);
+  }
+  .scroll-identidad::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scroll-identidad::-webkit-scrollbar-track {
+    background: var(--surface-background);
+  }
+  .scroll-identidad::-webkit-scrollbar-thumb {
+    background: var(--accent-default);
+    border-radius: 999px;
+  }
 }

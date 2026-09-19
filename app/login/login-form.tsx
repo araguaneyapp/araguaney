@@ -5,9 +5,125 @@ import Script from "next/script";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogIn, ArrowLeft, Mail, User } from "lucide-react";
+import { LogIn, ArrowLeft, Mail, User, ChevronDown } from "lucide-react";
 
 const SEGUNDOS_REENVIO = 120;
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+const ANIO_ACTUAL = new Date().getFullYear();
+const DIAS = Array.from({ length: 31 }, (_, i) => i + 1);
+// Se listan TODOS los años (incluidos los que darían menor de edad): la
+// lista no filtra nada, la validación real pasa al enviar el formulario.
+const ANIOS = Array.from({ length: 100 }, (_, i) => ANIO_ACTUAL - i);
+
+/**
+ * null si la combinación no es una fecha real (ej. 31 de febrero) — un
+ * <select> no puede impedir eso solo con las opciones que ofrece.
+ */
+function comoFecha(dia: string, mes: string, anio: string): Date | null {
+  if (!dia || !mes || !anio) return null;
+  const d = Number(dia);
+  const m = Number(mes);
+  const y = Number(anio);
+  const fecha = new Date(y, m - 1, d);
+  const esReal = fecha.getFullYear() === y && fecha.getMonth() === m - 1 && fecha.getDate() === d;
+  return esReal ? fecha : null;
+}
+
+function tieneAlMenos18(fecha: Date): boolean {
+  const hoy = new Date();
+  const hace18 = new Date(hoy.getFullYear() - 18, hoy.getMonth(), hoy.getDate());
+  return fecha <= hace18;
+}
+
+function comoISO(fecha: Date): string {
+  const y = fecha.getFullYear();
+  const m = String(fecha.getMonth() + 1).padStart(2, "0");
+  const d = String(fecha.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Reemplaza al <select> nativo para la fecha de nacimiento: el navegador
+ * dibuja su propia flecha (no se le puede dar margen) y su propio popup
+ * (no se le puede acotar la altura) — acá se controla todo, incluido que
+ * el panel de opciones nunca ocupe más de ~5 filas visibles a la vez.
+ */
+function Desplegable({
+  valor,
+  onCambio,
+  opciones,
+  placeholder,
+  ancho = "flex-1",
+}: {
+  valor: string;
+  onCambio: (v: string) => void;
+  opciones: { valor: string; etiqueta: string }[];
+  placeholder: string;
+  ancho?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!abierto) return;
+    function alClicarFuera(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+    }
+    document.addEventListener("mousedown", alClicarFuera);
+    return () => document.removeEventListener("mousedown", alClicarFuera);
+  }, [abierto]);
+
+  const seleccionado = opciones.find((o) => o.valor === valor);
+
+  return (
+    <div ref={ref} className={`relative min-w-0 ${ancho}`}>
+      <button
+        type="button"
+        onClick={() => setAbierto((a) => !a)}
+        className="flex w-full items-center justify-between gap-1 rounded-lg border bg-surface-card px-3 py-3 text-body-sm outline-none"
+        style={{ borderColor: abierto ? "var(--accent-default)" : "var(--border)" }}
+      >
+        <span
+          className="truncate"
+          style={{ color: seleccionado ? "var(--text-primary)" : "var(--text-secondary)" }}
+        >
+          {seleccionado?.etiqueta ?? placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 flex-shrink-0" style={{ color: "var(--icons-secondary)" }} />
+      </button>
+
+      {abierto && (
+        <div
+          className="scroll-identidad absolute z-20 mt-1 max-h-[200px] w-full overflow-y-auto rounded-lg py-1"
+          style={{ backgroundColor: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          {opciones.map((o) => (
+            <button
+              key={o.valor}
+              type="button"
+              onClick={() => {
+                onCambio(o.valor);
+                setAbierto(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-body-sm"
+              style={{
+                backgroundColor: o.valor === valor ? "var(--accent-subtle)" : "transparent",
+                color: "var(--text-primary)",
+              }}
+            >
+              {o.etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Público (va en el cliente a propósito): Cloudflare Turnstile, protege
 // signInWithOtp de registros/envíos masivos automatizados. El secret
@@ -33,6 +149,9 @@ export function LoginForm() {
   const [modo, setModo] = useState<"iniciar" | "crear">("iniciar");
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
+  const [dia, setDia] = useState("");
+  const [mes, setMes] = useState("");
+  const [anio, setAnio] = useState("");
   const [aceptaLegal, setAceptaLegal] = useState(false);
   const [codigo, setCodigo] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "verifying" | "error">("idle");
@@ -93,15 +212,30 @@ export function LoginForm() {
     const correo = email.trim().toLowerCase();
     if (!correo) return;
 
+    let fechaNacimiento: Date | null = null;
+
     if (modo === "crear") {
       if (!nombre.trim()) {
         setStatus("error");
         setErrorMsg("Ingresa tu nombre o usuario.");
         return;
       }
+
+      fechaNacimiento = comoFecha(dia, mes, anio);
+      if (!fechaNacimiento) {
+        setStatus("error");
+        setErrorMsg("Ingresa una fecha de nacimiento válida.");
+        return;
+      }
+      if (!tieneAlMenos18(fechaNacimiento)) {
+        setStatus("error");
+        setErrorMsg("Debes ser mayor de 18 años para crear una cuenta.");
+        return;
+      }
+
       if (!aceptaLegal) {
         setStatus("error");
-        setErrorMsg("Debes aceptar el aviso legal para crear tu cuenta.");
+        setErrorMsg("Debes aceptar los Términos y la Política de Privacidad.");
         return;
       }
     }
@@ -124,7 +258,9 @@ export function LoginForm() {
         captchaToken,
         // Solo importa la primera vez: handle_new_user la usa al crear el
         // profile. En un login normal (cuenta ya existe) no se manda nada.
-        ...(modo === "crear" && nombre.trim() ? { data: { nombre: nombre.trim() } } : {}),
+        ...(modo === "crear" && nombre.trim() && fechaNacimiento
+          ? { data: { nombre: nombre.trim(), fecha_nacimiento: comoISO(fechaNacimiento) } }
+          : {}),
       },
     });
 
@@ -311,6 +447,33 @@ export function LoginForm() {
       )}
 
       {modo === "crear" && (
+        <div className="flex flex-col gap-2">
+          <label className="text-label-md-caps text-text-secondary">FECHA DE NACIMIENTO</label>
+          <div className="flex gap-2">
+            <Desplegable
+              valor={dia}
+              onCambio={setDia}
+              placeholder="Día"
+              opciones={DIAS.map((d) => ({ valor: String(d), etiqueta: String(d) }))}
+            />
+            <Desplegable
+              valor={mes}
+              onCambio={setMes}
+              placeholder="Mes"
+              ancho="flex-[1.6]"
+              opciones={MESES.map((m, i) => ({ valor: String(i + 1), etiqueta: m }))}
+            />
+            <Desplegable
+              valor={anio}
+              onCambio={setAnio}
+              placeholder="Año"
+              opciones={ANIOS.map((a) => ({ valor: String(a), etiqueta: String(a) }))}
+            />
+          </div>
+        </div>
+      )}
+
+      {modo === "crear" && (
         <label className="flex items-start gap-2 text-label-md text-text-secondary">
           <input
             type="checkbox"
@@ -319,11 +482,15 @@ export function LoginForm() {
             className="mt-0.5 h-4 w-4 flex-shrink-0 accent-accent-default"
           />
           <span>
-            Acepto que Araguaney Quiniela use mi correo y nombre solo para
-            identificarme dentro de la app y avisarme sobre mi cuenta.{" "}
-            <Link href="/legal" className="underline" style={{ color: "var(--accent-default)" }}>
-              Leer más
+            Acepto los{" "}
+            <Link href="/legal/terminos" className="underline" style={{ color: "var(--accent-default)" }}>
+              Términos y Condiciones
+            </Link>{" "}
+            y la{" "}
+            <Link href="/legal/privacidad" className="underline" style={{ color: "var(--accent-default)" }}>
+              Política de Privacidad
             </Link>
+            , y declaro que mis datos, incluida mi fecha de nacimiento, son verídicos.
           </span>
         </label>
       )}
