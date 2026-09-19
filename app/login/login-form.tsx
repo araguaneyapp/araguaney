@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import { LogIn, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { LogIn, ArrowLeft, Mail, User } from "lucide-react";
 
 const SEGUNDOS_REENVIO = 120;
 
@@ -29,7 +30,10 @@ declare global {
 export function LoginForm() {
   const router = useRouter();
   const [paso, setPaso] = useState<"correo" | "codigo">("correo");
+  const [modo, setModo] = useState<"iniciar" | "crear">("iniciar");
   const [email, setEmail] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [aceptaLegal, setAceptaLegal] = useState(false);
   const [codigo, setCodigo] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "verifying" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -89,6 +93,19 @@ export function LoginForm() {
     const correo = email.trim().toLowerCase();
     if (!correo) return;
 
+    if (modo === "crear") {
+      if (!nombre.trim()) {
+        setStatus("error");
+        setErrorMsg("Ingresa tu nombre o usuario.");
+        return;
+      }
+      if (!aceptaLegal) {
+        setStatus("error");
+        setErrorMsg("Debes aceptar el aviso legal para crear tu cuenta.");
+        return;
+      }
+    }
+
     if (!captchaToken) {
       setStatus("error");
       setErrorMsg("Completa la verificación de seguridad antes de continuar.");
@@ -105,6 +122,9 @@ export function LoginForm() {
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
         captchaToken,
+        // Solo importa la primera vez: handle_new_user la usa al crear el
+        // profile. En un login normal (cuenta ya existe) no se manda nada.
+        ...(modo === "crear" && nombre.trim() ? { data: { nombre: nombre.trim() } } : {}),
       },
     });
 
@@ -252,15 +272,19 @@ export function LoginForm() {
     );
   }
 
-  // PASO 1: ingresar correo
+  // PASO 1: ingresar correo (modo "iniciar") o correo + nombre (modo "crear")
+  const puedeEnviar =
+    status !== "sending" && captchaToken && (modo === "iniciar" || aceptaLegal);
+
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
-      <h2 className="text-heading-md text-text-primary">Ingresa tu Correo</h2>
+      <h2 className="flex items-center gap-2 text-heading-md text-text-primary">
+        <Mail className="h-[18px] w-[18px]" style={{ color: "var(--icons-primary)" }} />
+        {modo === "iniciar" ? "Ingresa tu Correo" : "Crea tu cuenta"}
+      </h2>
 
       <div className="flex flex-col gap-2">
-        <label className="text-label-md-caps text-text-secondary">
-          CORREO
-        </label>
+        <label className="text-label-md-caps text-text-secondary">CORREO</label>
         <input
           type="email"
           value={email}
@@ -271,22 +295,72 @@ export function LoginForm() {
         />
       </div>
 
+      {modo === "crear" && (
+        <div className="flex flex-col gap-2">
+          <label className="text-label-md-caps text-text-secondary">NOMBRE O USUARIO</label>
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && enviarCodigo()}
+            placeholder="Cómo te van a ver los demás"
+            maxLength={30}
+            className="rounded-lg border border-input bg-surface-card px-4 py-3 text-body-sm outline-none focus:border-accent-default"
+          />
+        </div>
+      )}
+
+      {modo === "crear" && (
+        <label className="flex items-start gap-2 text-label-md text-text-secondary">
+          <input
+            type="checkbox"
+            checked={aceptaLegal}
+            onChange={(e) => setAceptaLegal(e.target.checked)}
+            className="mt-0.5 h-4 w-4 flex-shrink-0 accent-accent-default"
+          />
+          <span>
+            Acepto que Araguaney Quiniela use mi correo y nombre solo para
+            identificarme dentro de la app y avisarme sobre mi cuenta.{" "}
+            <Link href="/legal" className="underline" style={{ color: "var(--accent-default)" }}>
+              Leer más
+            </Link>
+          </span>
+        </label>
+      )}
+
       {status === "error" && (
         <p className="text-label-md text-feedback-danger">{errorMsg}</p>
       )}
 
       <button
         onClick={enviarCodigo}
-        disabled={status === "sending" || !captchaToken}
+        disabled={!puedeEnviar}
         className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-center text-action-button"
         style={{
           backgroundColor: "var(--accent-default)",
           color: "var(--text-on-accent)",
-          opacity: status === "sending" || !captchaToken ? 0.4 : 1,
+          opacity: puedeEnviar ? 1 : 0.4,
         }}
       >
         <LogIn className="h-[18px] w-[18px]" />
-        {status === "sending" ? "Enviando..." : "Enviar código"}
+        {status === "sending"
+          ? "Enviando..."
+          : modo === "iniciar"
+          ? "Enviar código"
+          : "Crear cuenta"}
+      </button>
+
+      <button
+        onClick={() => {
+          setModo(modo === "iniciar" ? "crear" : "iniciar");
+          setStatus("idle");
+          setErrorMsg("");
+        }}
+        className="flex items-center justify-center gap-1 text-center text-action-button"
+        style={{ color: "var(--accent-default)" }}
+      >
+        <User className="h-[16px] w-[16px]" />
+        {modo === "iniciar" ? "Crear cuenta" : "Ya tengo cuenta"}
       </button>
 
       <div id="turnstile-container" className="flex justify-center" />

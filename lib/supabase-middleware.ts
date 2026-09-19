@@ -30,7 +30,8 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const esRutaAuth = path.startsWith("/login") || path.startsWith("/auth");
+  const esRutaAuth =
+    path.startsWith("/login") || path.startsWith("/auth") || path.startsWith("/legal");
 
   // Sin sesión y fuera de las rutas de auth -> al login
   if (!user && !esRutaAuth) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronRight } from "lucide-react";
+import { BookOpen, ChevronRight, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { CerrarSesionAdmin } from "@/components/cerrar-sesion-admin";
 
@@ -95,6 +95,7 @@ export function PanelAdminCliente({
           <Link
             href={`/${torneoSlug}/reglas`}
             className="flex w-full items-center justify-between px-4 py-4"
+            style={{ borderBottom: "1px solid var(--border)" }}
           >
             <div className="flex items-center gap-3">
               <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
@@ -103,11 +104,21 @@ export function PanelAdminCliente({
             <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
           </Link>
         ) : (
-          <div className="flex w-full items-center gap-3 px-4 py-4" style={{ color: "var(--text-idle)" }}>
+          <div
+            className="flex w-full items-center gap-3 px-4 py-4"
+            style={{ color: "var(--text-idle)", borderBottom: "1px solid var(--border)" }}
+          >
             <BookOpen className="h-[18px] w-[18px]" />
             <span className="text-body-md">Reglas y puntuación</span>
           </div>
         )}
+        <Link href="/legal" className="flex w-full items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <ScrollText className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+            <span className="text-body-md">Aviso legal</span>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px]" style={{ color: "var(--icons-secondary)" }} />
+        </Link>
       </div>
 
       <CerrarSesionAdmin />
