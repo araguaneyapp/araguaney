@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Check, Lock, Medal, Search, Star, Trophy, Volleyball, X } from "lucide-react";
+import { Check, Lock, Medal, Search, SportShoe, Star, Trophy, X } from "lucide-react";
 import { Escudo, type EquipoEscudo } from "@/components/escudo";
 import { ScreenHeader } from "@/components/screen-header";
 import { createClient } from "@/lib/supabase-browser";
@@ -646,7 +646,7 @@ export function ExtrasCliente({
         <Tarjeta
           titulo="Goleador"
           icono={
-            <Volleyball
+            <SportShoe
               className="h-[18px] w-[18px] flex-shrink-0"
               style={{ color: "var(--icons-secondary)" }}
             />

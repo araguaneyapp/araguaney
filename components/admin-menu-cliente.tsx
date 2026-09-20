@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ClipboardList, Flag, RefreshCw, TriangleAlert, Volleyball } from "lucide-react";
+import { ClipboardList, Flag, RefreshCw, SportShoe, TriangleAlert } from "lucide-react";
 import { ScreenHeader } from "@/components/screen-header";
 import {
   finalizarTorneo,
@@ -185,7 +185,7 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
           className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
           style={{ border: "1px solid var(--accent-default)", color: "var(--accent-default)" }}
         >
-          <Volleyball className="h-[17px] w-[17px]" />
+          <SportShoe className="h-[17px] w-[17px]" />
           Declarar goleador manualmente
         </Link>
       </div>

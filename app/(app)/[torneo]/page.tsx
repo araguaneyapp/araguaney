@@ -7,7 +7,7 @@ import {
   Medal,
   Star,
   Trophy,
-  Volleyball,
+  SportShoe,
 } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -168,7 +168,9 @@ function FilaAcceso({
   /** Selección de texto plano (goleador, o "Seleccionados" del Top N). */
   seleccionado?: string | null;
 }) {
-  const elegido = equipo?.nombre ?? seleccionado ?? null;
+  // `seleccionado` manda sobre el nombre del equipo: para el goleador, el
+  // escudo es del EQUIPO pero el texto a mostrar es el del JUGADOR.
+  const elegido = seleccionado ?? equipo?.nombre ?? null;
 
   return (
     <div className="rounded-xl bg-surface-card">
@@ -304,6 +306,19 @@ export default async function InicioPage({
   const equipoPorId = new Map(
     ((equiposData ?? []) as EquipoInicio[]).map((e) => [e.id, e])
   );
+
+  // El escudo del goleador es el de SU equipo, no un check genérico — antes
+  // no había logos de equipo cargados, ahora sí (ver players/teams.api_id).
+  const { data: goleadorData } = extras?.goleador_id
+    ? await supabase
+        .from("players")
+        .select("nombre, equipo:teams!equipo_id(id, nombre, abreviatura, logo_url, codigo_iso)")
+        .eq("id", extras.goleador_id)
+        .maybeSingle()
+    : { data: null };
+  const goleador = goleadorData
+    ? { nombre: goleadorData.nombre, equipo: uno(goleadorData.equipo) as EquipoInicio | null }
+    : null;
   const hayExtras =
     config.extras.campeon || config.extras.subcampeon || config.extras.goleador;
 
@@ -446,13 +461,14 @@ export default async function InicioPage({
               <FilaAcceso
                 href={`/${torneo.slug}/quiniela/extras`}
                 icono={
-                  <Volleyball
+                  <SportShoe
                     className="h-[18px] w-[18px] flex-shrink-0"
                     style={{ color: "var(--icons-secondary)" }}
                   />
                 }
                 titulo="Goleador"
-                seleccionado={extras?.goleador_nombre ?? null}
+                equipo={goleador?.equipo}
+                seleccionado={goleador?.nombre ?? extras?.goleador_nombre ?? null}
               />
             )}
           </div>

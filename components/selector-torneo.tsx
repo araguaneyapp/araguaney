@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Trophy } from "lucide-react";
+import { Bell, ChevronRight, Plus, Trophy } from "lucide-react";
 import type { EstadoTorneo, Torneo } from "@/lib/torneo";
 import { activarTorneoAdmin } from "@/app/(app)/torneos/actions";
 
@@ -139,6 +139,29 @@ export function SelectorTorneo({
               </Link>
             );
           })}
+
+          <div className="flex flex-col items-center gap-2 rounded-xl bg-surface-card p-4 text-center">
+            <span
+              className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full"
+              style={{ backgroundColor: "var(--surface-background)" }}
+            >
+              <Plus className="h-6 w-6" style={{ color: "var(--text-idle)" }} />
+            </span>
+            <div className="text-body-md leading-tight">Próximamente</div>
+            <span className="text-label-sm text-text-secondary">
+              Estamos trabajando para sumar más competiciones a Araguaney.
+            </span>
+            <span
+              className="mt-auto flex w-full items-center justify-center gap-1 rounded-lg py-2 text-label-md-bold"
+              style={{
+                border: "1px solid var(--border-strong)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <Bell className="h-4 w-4" strokeWidth={1.5} />
+              ¡Mantente atento!
+            </span>
+          </div>
         </div>
       )}
     </main>

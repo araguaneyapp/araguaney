@@ -1,4 +1,4 @@
-import { Trophy, Medal, Volleyball } from "lucide-react";
+import { Trophy, Medal, SportShoe } from "lucide-react";
 import { Flag } from "@/components/flag";
 
 type Equipo = { nombre: string; codigo_iso: string };
@@ -65,7 +65,7 @@ export function TusExtras({ extras }: { extras: Extras }) {
 
         <div className="flex items-center justify-between py-3">
           <span className="flex items-center gap-2 text-body-sm text-text-tertiary">
-            <Volleyball className="h-[15px] w-[15px]" style={{ color: "var(--icons-secondary)" }} />
+            <SportShoe className="h-[15px] w-[15px]" style={{ color: "var(--icons-secondary)" }} />
             Goleador
           </span>
           {goleador ? (
