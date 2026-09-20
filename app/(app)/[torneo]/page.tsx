@@ -325,11 +325,21 @@ export default async function InicioPage({
   return (
     <main className="min-h-screen px-5 pt-8 pb-6">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-body-sm text-text-secondary">Hola,</p>
-          <h1 className="text-heading-xl leading-tight">
-            {perfil?.nombre || "jugador"} 👋
-          </h1>
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG local, next/image no sirve SVG sin habilitarlo en next.config */}
+          <img
+            src="/logo/icon-araguaney-white.svg"
+            alt=""
+            width={56}
+            height={56}
+            className="flex-shrink-0"
+          />
+          <div>
+            <p className="text-body-sm text-text-secondary">Hola,</p>
+            <h1 className="text-heading-xl leading-tight">
+              {perfil?.nombre || "jugador"} 👋
+            </h1>
+          </div>
         </div>
         {solicitudes.administraAlgunGrupo && (
           <CampanaSolicitudes hayPendientes={solicitudes.hayPendientes} />
