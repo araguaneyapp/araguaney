@@ -100,7 +100,14 @@ export function GruposNuevoCliente({
 
   if (solicitudEnviada) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-8 text-center">
+      <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 px-8 text-center">
+        <Link
+          href={volverA}
+          className="absolute left-5 top-8 flex items-center gap-1 text-body-sm text-text-secondary"
+        >
+          <ArrowLeft className="h-4 w-4" style={{ color: "var(--icons-secondary)" }} />
+          Volver
+        </Link>
         <span
           className="flex h-14 w-14 items-center justify-center rounded-full"
           style={{ backgroundColor: "var(--feedback-success-surface)" }}

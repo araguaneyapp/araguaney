@@ -220,7 +220,9 @@ export function PerfilCliente({
             <div className="mt-px truncate text-body-sm text-text-secondary">{correoActual}</div>
           </div>
         </div>
-        {administraAlgunGrupo && <CampanaSolicitudes hayPendientes={hayPendientes} />}
+        {administraAlgunGrupo && (
+          <CampanaSolicitudes hayPendientes={hayPendientes} usuarioId={usuarioId} />
+        )}
       </div>
 
       <div className="mb-5 rounded-xl bg-surface-card p-4">

@@ -342,7 +342,7 @@ export default async function InicioPage({
           </div>
         </div>
         {solicitudes.administraAlgunGrupo && (
-          <CampanaSolicitudes hayPendientes={solicitudes.hayPendientes} />
+          <CampanaSolicitudes hayPendientes={solicitudes.hayPendientes} usuarioId={usuarioId} />
         )}
       </div>
 
