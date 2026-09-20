@@ -89,11 +89,14 @@ export default async function SolicitudesPage() {
                     <Users className="h-5 w-5" style={{ color: "var(--icons-primary)" }} />
                   </span>
                   <div className="min-w-0 flex-1">
+                    <div className="truncate text-label-md-caps text-accent-default">
+                      {grupo?.nombre ?? "Tu grupo"}
+                    </div>
                     <div className="truncate text-body-md-bold">
                       {solicitante?.nombre ?? "Alguien"}
                     </div>
                     <div className="truncate text-body-sm text-text-secondary">
-                      quiere unirse a {grupo?.nombre ?? "tu grupo"}
+                      quiere unirse a este grupo
                     </div>
                     {s.nota && (
                       <div className="mt-1 truncate text-body-sm text-text-secondary">
