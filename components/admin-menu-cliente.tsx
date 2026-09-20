@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClipboardList, Flag, RefreshCw, TriangleAlert, Volleyball } from "lucide-react";
 import { ScreenHeader } from "@/components/screen-header";
-import { finalizarTorneo, sincronizarResultados } from "@/app/(app)/admin/resultados/actions";
+import {
+  finalizarTorneo,
+  guardarGoleadorOficial,
+  sincronizarResultados,
+  sugerirGoleador,
+} from "@/app/(app)/admin/resultados/actions";
 
 type Dialogo = "resultados" | "goleador" | "finalizar" | null;
 
@@ -95,9 +100,34 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
     router.refresh();
   };
 
-  const confirmarGoleador = () => {
+  const [sugerencia, setSugerencia] = useState<{
+    error?: string;
+    nombre_api?: string;
+    goles?: number;
+    jugador_id?: number | null;
+    jugador_nombre?: string | null;
+  } | null>(null);
+
+  const pedirSugerenciaGoleador = async () => {
+    setProcesando(true);
+    const resultado = await sugerirGoleador(torneoId);
+    setProcesando(false);
+    setSugerencia(resultado);
+    setDialogo("goleador");
+  };
+
+  const confirmarGoleador = async () => {
+    if (!sugerencia?.jugador_id) return;
+    setProcesando(true);
+    const resultado = await guardarGoleadorOficial(torneoId, sugerencia.jugador_id);
+    setProcesando(false);
     setDialogo(null);
-    setResumen("Función en construcción — todavía no está conectada a la API.");
+
+    if (resultado.error) {
+      setResumen(resultado.error, true);
+      return;
+    }
+    setResumen(`${sugerencia.jugador_nombre} guardado como goleador oficial.`);
   };
 
   const confirmarFinalizar = async () => {
@@ -119,7 +149,7 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
     <main className="min-h-screen px-5 pt-8 pb-6">
       <ScreenHeader title="Administrador" />
 
-      <div className="mb-2 text-heading-md">Actualización vía API</div>
+      <div className="mb-2 text-heading-md">Actualización de resultados</div>
       <div className="mb-6 flex flex-col gap-2">
         <button
           onClick={() => setDialogo("resultados")}
@@ -129,37 +159,38 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
           <RefreshCw className="h-[17px] w-[17px]" />
           Actualizar resultados
         </button>
-        <button
-          onClick={() => setDialogo("goleador")}
-          className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
-          style={{ border: "1px solid var(--accent-default)", color: "var(--accent-default)" }}
-        >
-          <RefreshCw className="h-[17px] w-[17px]" />
-          Actualizar al goleador
-        </button>
-      </div>
-
-      <div className="mb-2 text-heading-md">Actualización manual</div>
-      <div className="flex flex-col gap-2">
         <Link
           href="/admin/resultados/partidos"
           className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
-          style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
+          style={{ border: "1px solid var(--accent-default)", color: "var(--accent-default)" }}
         >
           <ClipboardList className="h-[17px] w-[17px]" />
-          Cargar partidos
+          Cargar resultados manualmente
         </Link>
+      </div>
+
+      <div className="mb-2 text-heading-md">Declarar goleador del torneo</div>
+      <div className="mb-6 flex flex-col gap-2">
+        <button
+          onClick={pedirSugerenciaGoleador}
+          disabled={procesando}
+          className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
+          style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)", opacity: procesando ? 0.6 : 1 }}
+        >
+          <RefreshCw className="h-[17px] w-[17px]" />
+          {procesando ? "Buscando..." : "Actualizar goleador"}
+        </button>
         <Link
           href="/admin/resultados/goleador"
           className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
           style={{ border: "1px solid var(--accent-default)", color: "var(--accent-default)" }}
         >
           <Volleyball className="h-[17px] w-[17px]" />
-          Cargar goleador
+          Declarar goleador manualmente
         </Link>
       </div>
 
-      <div className="mb-2 mt-6 text-heading-md">Cierre de torneo</div>
+      <div className="mb-2 text-heading-md">Declarar final del torneo</div>
       <button
         onClick={() => setDialogo("finalizar")}
         className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
@@ -191,14 +222,74 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
         />
       )}
 
-      {dialogo === "goleador" && (
-        <Dialog
-          titulo="¿Actualizar al goleador?"
-          texto="Esto trae el goleador del torneo desde la API."
-          procesando={false}
-          onCancelar={() => setDialogo(null)}
-          onConfirmar={confirmarGoleador}
-        />
+      {dialogo === "goleador" && sugerencia && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-8"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          onClick={() => !procesando && setDialogo(null)}
+        >
+          <div
+            className="w-full max-w-[300px] rounded-2xl p-5"
+            style={{ backgroundColor: "var(--surface-card)", border: "1px solid var(--border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sugerencia.error ? (
+              <>
+                <h3 className="text-center text-heading-md">No se pudo sugerir</h3>
+                <p className="mt-1 text-center text-body-sm text-text-secondary">{sugerencia.error}</p>
+                <button
+                  onClick={() => setDialogo(null)}
+                  className="mt-5 w-full rounded-lg py-3 text-action-button"
+                  style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
+                >
+                  Cerrar
+                </button>
+              </>
+            ) : sugerencia.jugador_id ? (
+              <>
+                <h3 className="text-center text-heading-md">¿Confirmar goleador?</h3>
+                <p className="mt-1 text-center text-body-sm text-text-secondary">
+                  La API sugiere a <strong className="text-text-primary">{sugerencia.jugador_nombre}</strong>{" "}
+                  ({sugerencia.goles} goles).
+                </p>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => setDialogo(null)}
+                    disabled={procesando}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                  >
+                    No
+                  </button>
+                  <button
+                    onClick={confirmarGoleador}
+                    disabled={procesando}
+                    className="flex-1 rounded-lg py-3 text-action-button"
+                    style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)", opacity: procesando ? 0.6 : 1 }}
+                  >
+                    {procesando ? "Guardando..." : "Sí"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-center text-heading-md">Sin cruce automático</h3>
+                <p className="mt-1 text-center text-body-sm text-text-secondary">
+                  La API sugiere a <strong className="text-text-primary">{sugerencia.nombre_api}</strong>{" "}
+                  ({sugerencia.goles} goles), pero no lo pudimos cruzar con la lista de jugadores. Búscalo a mano.
+                </p>
+                <Link
+                  href="/admin/resultados/goleador"
+                  onClick={() => setDialogo(null)}
+                  className="mt-5 flex w-full items-center justify-center rounded-lg py-3 text-action-button"
+                  style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
+                >
+                  Buscar manualmente
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {dialogo === "finalizar" && (

@@ -66,3 +66,56 @@ export async function finalizarTorneo(tournamentId: number): Promise<ResultadoFi
 
   return data as ResultadoFinal;
 }
+
+/**
+ * Guarda al goleador oficial del torneo (usado por resolver_especiales al
+ * "Finalizar torneo"). Se puede fijar en cualquier momento, antes o
+ * después de que se juegue la final.
+ */
+export async function guardarGoleadorOficial(
+  tournamentId: number,
+  jugadorId: number
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("tournaments")
+    .update({ goleador_oficial_id: jugadorId })
+    .eq("id", tournamentId);
+
+  if (error) {
+    return { error: "No se pudo guardar. Intenta de nuevo." };
+  }
+
+  revalidatePath("/admin/resultados/goleador");
+  return {};
+}
+
+type SugerenciaGoleador = {
+  error?: string;
+  nombre_api?: string;
+  goles?: number;
+  jugador_id?: number | null;
+  jugador_nombre?: string | null;
+};
+
+/**
+ * Pide el Top Scorer del torneo a la API y trata de cruzarlo contra
+ * `players` por equipo+nombre. Nunca guarda nada sola — devuelve la
+ * sugerencia para confirmarla con guardarGoleadorOficial.
+ */
+export async function sugerirGoleador(tournamentId: number): Promise<SugerenciaGoleador> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.functions.invoke("sugerir-goleador", {
+    body: { tournament_id: tournamentId },
+  });
+
+  if (error) {
+    const contexto = (error as { context?: Response }).context;
+    const mensaje = await contexto?.json().catch(() => null);
+    return { error: mensaje?.error ?? "No se pudo conectar con la sugerencia de goleador." };
+  }
+
+  return data as SugerenciaGoleador;
+}

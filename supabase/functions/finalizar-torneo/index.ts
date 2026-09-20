@@ -121,6 +121,16 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Campeón/Subcampeón/Goleador cierran junto con el torneo: se resuelven
+  // acá, antes de armar el Top 10, para que el ranking del correo ya
+  // incluya esos puntos.
+  const { error: errorEspeciales } = await supabase.rpc("resolver_especiales", {
+    p_tournament_id: tournament_id,
+  });
+  if (errorEspeciales) {
+    return Response.json({ error: errorEspeciales.message }, { status: 500 });
+  }
+
   const { data: grupos, error: errorGrupos } = await supabase
     .from("groups")
     .select("id, nombre")
