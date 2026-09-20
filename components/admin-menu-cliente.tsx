@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ClipboardList, RefreshCw, Volleyball } from "lucide-react";
+import { ClipboardList, Flag, RefreshCw, TriangleAlert, Volleyball } from "lucide-react";
 import { ScreenHeader } from "@/components/screen-header";
-import { sincronizarResultados } from "@/app/(app)/admin/resultados/actions";
+import { finalizarTorneo, sincronizarResultados } from "@/app/(app)/admin/resultados/actions";
 
-type Dialogo = "resultados" | "goleador" | null;
+type Dialogo = "resultados" | "goleador" | "finalizar" | null;
 
 function Dialog({
   titulo,
@@ -70,7 +70,8 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
   const router = useRouter();
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [procesando, setProcesando] = useState(false);
-  const [resumen, setResumen] = useState<string | null>(null);
+  const [resumen, setResumenInterno] = useState<{ texto: string; esError: boolean } | null>(null);
+  const setResumen = (texto: string, esError = false) => setResumenInterno({ texto, esError });
 
   const confirmarResultados = async () => {
     setProcesando(true);
@@ -79,7 +80,7 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
     setDialogo(null);
 
     if (resultado.error) {
-      setResumen(resultado.error);
+      setResumen(resultado.error, true);
       return;
     }
     const partes = [`${resultado.actualizados ?? 0} partidos actualizados`];
@@ -97,6 +98,21 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
   const confirmarGoleador = () => {
     setDialogo(null);
     setResumen("Función en construcción — todavía no está conectada a la API.");
+  };
+
+  const confirmarFinalizar = async () => {
+    setProcesando(true);
+    const resultado = await finalizarTorneo(torneoId);
+    setProcesando(false);
+    setDialogo(null);
+
+    if (resultado.error) {
+      setResumen(resultado.error, true);
+      return;
+    }
+    setResumen(
+      `${resultado.gruposProcesados ?? 0} grupos notificados · ${resultado.correosEnviados ?? 0} correos enviados`
+    );
   };
 
   return (
@@ -143,8 +159,26 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
         </Link>
       </div>
 
+      <div className="mb-2 mt-6 text-heading-md">Cierre de torneo</div>
+      <button
+        onClick={() => setDialogo("finalizar")}
+        className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-action-button"
+        style={{ backgroundColor: "var(--accent-default)", color: "var(--text-on-accent)" }}
+      >
+        <Flag className="h-[17px] w-[17px]" />
+        Finalizar torneo
+      </button>
+
       {resumen && (
-        <p className="mt-4 text-center text-label-md text-text-secondary">{resumen}</p>
+        <div
+          className="mt-4 flex items-center justify-center gap-2 text-center text-body-sm"
+          style={{ color: resumen.esError ? "var(--feedback-danger)" : "var(--text-secondary)" }}
+        >
+          {resumen.esError && (
+            <TriangleAlert className="h-[18px] w-[18px] flex-shrink-0" style={{ color: "var(--icons-error)" }} />
+          )}
+          <span>{resumen.texto}</span>
+        </div>
       )}
 
       {dialogo === "resultados" && (
@@ -164,6 +198,16 @@ export function AdminMenuCliente({ torneoId }: { torneoId: number }) {
           procesando={false}
           onCancelar={() => setDialogo(null)}
           onConfirmar={confirmarGoleador}
+        />
+      )}
+
+      {dialogo === "finalizar" && (
+        <Dialog
+          titulo="¿Finalizar torneo?"
+          texto="Esto manda el correo de resultados finales (Top 10) a todos los miembros de todos los grupos de este torneo. No se puede deshacer."
+          procesando={procesando}
+          onCancelar={() => setDialogo(null)}
+          onConfirmar={confirmarFinalizar}
         />
       )}
     </main>

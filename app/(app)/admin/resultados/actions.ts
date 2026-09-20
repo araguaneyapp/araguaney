@@ -35,3 +35,34 @@ export async function sincronizarResultados(tournamentId: number): Promise<Resul
   revalidatePath("/", "layout");
   return data as ResultadoSync;
 }
+
+type ResultadoFinal = {
+  ok?: boolean;
+  error?: string;
+  gruposProcesados?: number;
+  correosEnviados?: number;
+};
+
+/**
+ * Dispara el correo de resultados finales (Top 10 por grupo). Es una
+ * decisión del SuperAdmin, no algo automático — la Edge Function igual
+ * valida que la final ya tenga resultado antes de mandar nada.
+ */
+export async function finalizarTorneo(tournamentId: number): Promise<ResultadoFinal> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.functions.invoke("finalizar-torneo", {
+    body: { tournament_id: tournamentId },
+  });
+
+  if (error) {
+    // La Edge Function manda un mensaje específico (ej. "la final no tiene
+    // resultado todavía") en el body de la respuesta no-2xx — vale la pena
+    // mostrarlo tal cual en vez de un genérico, es información accionable.
+    const contexto = (error as { context?: Response }).context;
+    const mensaje = await contexto?.json().catch(() => null);
+    return { error: mensaje?.error ?? "No se pudo conectar con el cierre de torneo. Intenta de nuevo." };
+  }
+
+  return data as ResultadoFinal;
+}
