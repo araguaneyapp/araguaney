@@ -124,12 +124,27 @@ Deno.serve(async (req) => {
   }
 
   /*
-   * Todo lo que usa esta app es OTP de 6 dígitos (login-form.tsx pide el
-   * código, nunca hace clic en un link). `token` es ese código; el resto de
-   * los tipos (recovery, invite, etc.) no aplican hoy pero se dejan con el
-   * mismo template por si algún día se usan.
+   * Todo lo que usa esta app es OTP de 6 dígitos (login-form.tsx y el
+   * cambio de email en Perfil piden el código, nunca hacen clic en un
+   * link). `email_action_type` distingue el login del cambio de correo —
+   * mismo código de 6 dígitos en los dos casos, pero el texto alrededor
+   * confundía ("tu código de acceso" al cambiar de correo no dice nada de
+   * que se está confirmando un cambio). El resto de los tipos (recovery,
+   * invite, etc.) no aplican hoy y caen en el texto de login por defecto.
    */
-  const asunto = "Tu código de acceso a Araguaney";
+  const esCambioDeCorreo = emailData.email_action_type.startsWith("email_change");
+
+  const asunto = esCambioDeCorreo
+    ? "Confirma tu nuevo correo en Araguaney"
+    : "Tu código de acceso a Araguaney";
+  const titulo = esCambioDeCorreo ? "Confirma tu nuevo correo" : "Tu código de acceso";
+  const intro = esCambioDeCorreo
+    ? "Ingresa este código en la app para confirmar el cambio de correo de tu cuenta. Es de un solo uso y caduca en 15 minutos."
+    : "Ingresa este código en la app para entrar a Araguaney Quiniela. Es de un solo uso y caduca en 15 minutos.";
+  const piePersonalizado = esCambioDeCorreo
+    ? "Si no pediste cambiar tu correo, ignora este mensaje y tu cuenta sigue igual."
+    : "Si no solicitaste este correo, puedes ignorarlo.";
+
   const html = `
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#161616;padding:40px 0;font-family:Arial,Helvetica,sans-serif;">
   <tr>
@@ -142,8 +157,8 @@ Deno.serve(async (req) => {
         </tr>
         <tr>
           <td style="padding:36px 32px;">
-            <h1 style="margin:0 0 16px;color:#F5F5F5;font-size:22px;font-weight:700;">Tu código de acceso</h1>
-            <p style="margin:0 0 28px;color:#B5B5B5;font-size:15px;line-height:1.6;">Ingresa este código en la app para entrar a Araguaney Quiniela. Es de un solo uso y caduca en 15 minutos.</p>
+            <h1 style="margin:0 0 16px;color:#F5F5F5;font-size:22px;font-weight:700;">${titulo}</h1>
+            <p style="margin:0 0 28px;color:#B5B5B5;font-size:15px;line-height:1.6;">${intro}</p>
             <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
               <tr>
                 <td align="center" style="border-radius:10px;background-color:#161616;border:1px solid #2A2A2A;padding:20px 36px;">
@@ -151,8 +166,8 @@ Deno.serve(async (req) => {
                 </td>
               </tr>
             </table>
-            <p style="margin:28px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Vuelve a la pantalla donde pediste el código y escríbelo para acceder.</p>
-            <p style="margin:16px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Si no solicitaste este correo, puedes ignorarlo.</p>
+            <p style="margin:28px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Vuelve a la pantalla donde pediste el código y escríbelo para confirmar.</p>
+            <p style="margin:16px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">${piePersonalizado}</p>
           </td>
         </tr>
       </table>

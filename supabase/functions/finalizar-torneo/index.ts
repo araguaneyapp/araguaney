@@ -55,11 +55,66 @@ function parrafo(texto: string) {
   return `<p style="margin:0 0 16px;color:#B5B5B5;font-size:15px;line-height:1.6;">${texto}</p>`;
 }
 
+function inicial(nombre: string) {
+  return nombre.trim().charAt(0).toUpperCase() || "?";
+}
+
+/**
+ * Un puesto del podio (mismo diseño que components/podio.tsx de la app:
+ * círculo con aro de color + bloque con el número). El bloque contrasta
+ * contra el fondo de la TARJETA (#1F1F1F) — 1er lugar con un tinte
+ * amarillo oscuro (como --accent-subtle en la app), 2do/3ro con el fondo
+ * de página (#161616). Con el mismo color que la tarjeta, el bloque
+ * desaparece — ya pasó una vez armando esto.
+ */
+function celdaPodio(fila: FilaRanking, lugar: 1 | 2 | 3, esDestinatario: boolean) {
+  const color = COLOR_POSICION[lugar];
+  const tamañoAvatar = lugar === 1 ? 64 : 50;
+  const altoBloque = lugar === 1 ? 62 : 48;
+  const fondoBloque = lugar === 1 ? "#2A2509" : "#161616";
+  const corona = lugar === 1 ? `<div style="margin-bottom:4px;font-size:18px;">👑</div>` : "";
+
+  return `
+    <td width="33%" valign="bottom" align="center" style="padding:0 4px;">
+      ${corona}
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+        <tr>
+          <td width="${tamañoAvatar}" height="${tamañoAvatar}" align="center" valign="middle" style="border:2px solid ${color};border-radius:${tamañoAvatar / 2}px;color:${color};font-size:${lugar === 1 ? 26 : 20}px;font-weight:700;">
+            ${inicial(fila.nombre)}
+          </td>
+        </tr>
+      </table>
+      <div style="margin-top:8px;color:#F5F5F5;font-size:14px;font-weight:${esDestinatario ? "700" : "400"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        ${fila.nombre}${esDestinatario ? " (tú)" : ""}
+      </div>
+      <div style="color:#8A8A8A;font-size:12px;">${fila.puntos_total} pts</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">
+        <tr>
+          <td align="center" valign="middle" height="${altoBloque}" style="background-color:${fondoBloque};border-radius:10px;color:${color};font-size:24px;font-weight:700;">
+            ${lugar}
+          </td>
+        </tr>
+      </table>
+    </td>`;
+}
+
+function podio(top3: FilaRanking[], usuarioId: string) {
+  const [primero, segundo, tercero] = top3;
+  if (!primero) return "";
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        ${segundo ? celdaPodio(segundo, 2, segundo.usuario_id === usuarioId) : `<td width="33%"></td>`}
+        ${celdaPodio(primero, 1, primero.usuario_id === usuarioId)}
+        ${tercero ? celdaPodio(tercero, 3, tercero.usuario_id === usuarioId) : `<td width="33%"></td>`}
+      </tr>
+    </table>`;
+}
+
 function filaRanking(fila: FilaRanking, esDestinatario: boolean) {
-  const color = fila.posicion ? COLOR_POSICION[fila.posicion] : null;
   return `
     <tr>
-      <td style="padding:8px 0;border-bottom:1px solid #2A2A2A;color:${color ?? "#B5B5B5"};font-size:15px;font-weight:${color ? "700" : "400"};width:32px;">
+      <td style="padding:8px 0;border-bottom:1px solid #2A2A2A;color:#B5B5B5;font-size:15px;width:32px;">
         ${fila.posicion ?? "-"}
       </td>
       <td style="padding:8px 0;border-bottom:1px solid #2A2A2A;color:${esDestinatario ? "#F5F5F5" : "#B5B5B5"};font-size:15px;font-weight:${esDestinatario ? "700" : "400"};">
@@ -85,12 +140,13 @@ function plantillaResultadoFinal(
     ? `Eres el campeón de <strong style="color:#F5F5F5;">${nombreGrupo}</strong>. Estos son los resultados finales:`
     : `Estos son los resultados finales de <strong style="color:#F5F5F5;">${nombreGrupo}</strong>:`;
 
-  const filas = top10.map((f) => filaRanking(f, f.usuario_id === usuarioId)).join("");
+  const resto = top10.slice(3).map((f) => filaRanking(f, f.usuario_id === usuarioId)).join("");
 
   return envoltorio(
     titulo,
     parrafo(intro) +
-      `<table width="100%" cellpadding="0" cellspacing="0">${filas}</table>` +
+      podio(top10.slice(0, 3), usuarioId) +
+      `<table width="100%" cellpadding="0" cellspacing="0">${resto}</table>` +
       `<p style="margin:20px 0 0;color:#8A8A8A;font-size:13px;line-height:1.6;">Gracias por jugar. Nos vemos en el próximo torneo.</p>`
   );
 }
