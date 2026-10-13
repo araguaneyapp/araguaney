@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -31,6 +32,9 @@ export default async function EliminatoriasPage({
   const { torneo: slug } = await params;
   const torneo = await getTorneo(slug);
   const supabase = await createClient();
+
+  const cookieStore = await cookies();
+  const grupoActivo = cookieStore.get("grupo_activo")?.value;
 
   // Qué es "eliminatoria" lo dice el config, no una lista de rondas fija.
   const fases = torneo.config.fases.filter((fase) => {
@@ -143,9 +147,13 @@ export default async function EliminatoriasPage({
   const idsJugados = partidos.filter(estaJugado).map((p) => p.id);
   const idsLlaves = llaves.map((ll) => ll.id);
 
+  const idsMiembros = grupoActivo
+    ? await cargarIdsMiembros(supabase, grupoActivo)
+    : [];
+
   const [pronosticos, avances] = await Promise.all([
-    cargarPronosticos(supabase, torneo.id, idsJugados),
-    cargarAvances(supabase, torneo.id, idsLlaves),
+    cargarPronosticos(supabase, torneo.id, idsJugados, idsMiembros),
+    cargarAvances(supabase, torneo.id, idsLlaves, idsMiembros),
   ]);
 
   return (
@@ -161,12 +169,21 @@ export default async function EliminatoriasPage({
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
+async function cargarIdsMiembros(supabase: Supabase, grupoActivo: string) {
+  const { data } = await supabase
+    .from("group_members")
+    .select("usuario_id")
+    .eq("group_id", grupoActivo);
+  return (data ?? []).map((m) => m.usuario_id);
+}
+
 async function cargarPronosticos(
   supabase: Supabase,
   torneoId: number,
-  idsPartidos: number[]
+  idsPartidos: number[],
+  idsMiembros: string[]
 ): Promise<Record<number, Pronostico[]>> {
-  if (idsPartidos.length === 0) return {};
+  if (idsPartidos.length === 0 || idsMiembros.length === 0) return {};
 
   const { data } = await supabase
     .from("predictions")
@@ -182,7 +199,8 @@ async function cargarPronosticos(
     `
     )
     .eq("tournament_id", torneoId)
-    .in("match_id", idsPartidos);
+    .in("match_id", idsPartidos)
+    .in("usuario_id", idsMiembros);
 
   return (data ?? []).reduce<Record<number, Pronostico[]>>((acc, pr) => {
     const perfil = uno(pr.profiles);
@@ -205,9 +223,10 @@ async function cargarPronosticos(
 async function cargarAvances(
   supabase: Supabase,
   torneoId: number,
-  idsLlaves: number[]
+  idsLlaves: number[],
+  idsMiembros: string[]
 ): Promise<Record<number, AvancePronosticado[]>> {
-  if (idsLlaves.length === 0) return {};
+  if (idsLlaves.length === 0 || idsMiembros.length === 0) return {};
 
   const { data } = await supabase
     .from("tie_predictions")
@@ -222,7 +241,8 @@ async function cargarAvances(
     `
     )
     .eq("tournament_id", torneoId)
-    .in("tie_id", idsLlaves);
+    .in("tie_id", idsLlaves)
+    .in("usuario_id", idsMiembros);
 
   return (data ?? []).reduce<Record<number, AvancePronosticado[]>>((acc, pr) => {
     const perfil = uno(pr.profiles);

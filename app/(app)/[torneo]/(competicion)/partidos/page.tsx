@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { getTorneo } from "@/lib/torneo";
 import { uno } from "@/lib/embeds";
@@ -15,6 +16,9 @@ export default async function PartidosPage({
   const { torneo: slug } = await params;
   const torneo = await getTorneo(slug);
   const supabase = await createClient();
+
+  const cookieStore = await cookies();
+  const grupoActivo = cookieStore.get("grupo_activo")?.value;
 
   const [
     {
@@ -64,11 +68,19 @@ export default async function PartidosPage({
 
   let pronosticos: Record<number, Pronostico[]> = {};
 
-  if (idsFinalizados.length > 0) {
-    const { data: preds } = await supabase
-      .from("predictions")
-      .select(
-        `
+  if (idsFinalizados.length > 0 && grupoActivo) {
+    const { data: miembros } = await supabase
+      .from("group_members")
+      .select("usuario_id")
+      .eq("group_id", grupoActivo);
+
+    const idsMiembros = (miembros ?? []).map((m) => m.usuario_id);
+
+    const { data: preds } = idsMiembros.length
+      ? await supabase
+          .from("predictions")
+          .select(
+            `
         match_id,
         marcador_local,
         marcador_visitante,
@@ -77,9 +89,11 @@ export default async function PartidosPage({
         usuario_id,
         profiles(nombre)
       `
-      )
-      .eq("tournament_id", torneo.id)
-      .in("match_id", idsFinalizados);
+          )
+          .eq("tournament_id", torneo.id)
+          .in("match_id", idsFinalizados)
+          .in("usuario_id", idsMiembros)
+      : { data: [] };
 
     pronosticos = (preds ?? []).reduce<Record<number, Pronostico[]>>(
       (acc, pr) => {
